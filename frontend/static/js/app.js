@@ -219,6 +219,9 @@ function initEventListeners() {
         sendWithTts.addEventListener('click', sendWithTtsMessage);
     }
     
+    // 语音输入
+    if (typeof initVoiceInput === 'function') initVoiceInput();
+
     // 附加文件
     const attachBtn = document.getElementById('attach-btn');
     const fileInput = document.getElementById('chat-file-input');
@@ -1340,6 +1343,127 @@ function renderCodeBlock(code, language) {
             </div>
         </div>
     `;
+}
+
+// ===== 语音输入（浏览器 Web Speech API）=====
+var _voiceRec = null;
+var _voiceActive = false;
+
+function initVoiceInput() {
+    var btn = document.getElementById('voice-input-btn');
+    if (!btn) return;
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+        btn.title = '当前浏览器不支持语音输入（需要 Edge / Chrome）';
+        btn.addEventListener('click', function () {
+            showToast('当前浏览器不支持语音输入，请使用 Edge 或 Chrome', 'error');
+        });
+        return;
+    }
+    btn.addEventListener('click', function () {
+        if (_voiceActive) { _stopVoiceInput(); return; }
+        _startVoiceInput(SR, btn);
+    });
+}
+
+function _startVoiceInput(SR, btn) {
+    try {
+        _voiceRec = new SR();
+        _voiceRec.lang = 'zh-CN';
+        _voiceRec.continuous = false;
+        _voiceRec.interimResults = true;
+        var input = document.getElementById('message-input');
+        var baseText = input ? input.value : '';
+
+        _voiceRec.onstart = function () {
+            _voiceActive = true;
+            btn.classList.add('recording');
+            btn.title = '正在聆听…（点击停止）';
+        };
+        _voiceRec.onresult = function (ev) {
+            var finalText = '';
+            var interim = '';
+            for (var i = ev.resultIndex; i < ev.results.length; i++) {
+                var r = ev.results[i];
+                if (r.isFinal) finalText += r[0].transcript;
+                else interim += r[0].transcript;
+            }
+            if (input) {
+                input.value = (baseText ? baseText + ' ' : '') + (finalText || interim);
+                input.dispatchEvent(new Event('input'));
+            }
+        };
+        _voiceRec.onerror = function (ev) {
+            if (ev.error === 'not-allowed') showToast('麦克风权限被拒绝', 'error');
+            else if (ev.error !== 'aborted') showToast('语音识别失败：' + ev.error, 'error');
+            _stopVoiceInput();
+        };
+        _voiceRec.onend = function () { _stopVoiceInput(); };
+        _voiceRec.start();
+    } catch (e) {
+        showToast('语音输入启动失败: ' + e.message, 'error');
+        _stopVoiceInput();
+    }
+}
+
+function _stopVoiceInput() {
+    _voiceActive = false;
+    var btn = document.getElementById('voice-input-btn');
+    if (btn) {
+        btn.classList.remove('recording');
+        btn.title = '语音输入（按住说话 / 点击开始）';
+    }
+    try { if (_voiceRec) _voiceRec.stop(); } catch (e) {}
+    _voiceRec = null;
+}
+
+// ===== 正文 [n] 角标 → 跳到参考来源 =====
+function _linkifyCitations(root) {
+    if (!root) return;
+    var srcBox = root.querySelector('.msg-sources');
+    if (!srcBox || !srcBox.querySelectorAll('.msg-source').length) return;
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (node) {
+            if (!node.nodeValue || node.nodeValue.indexOf('[') < 0) return NodeFilter.FILTER_REJECT;
+            var p = node.parentElement;
+            if (!p) return NodeFilter.FILTER_REJECT;
+            if (p.closest('pre, code, a, .msg-sources, .katex, .mermaid-block')) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+        }
+    });
+    var targets = [];
+    var n;
+    while ((n = walker.nextNode())) targets.push(n);
+
+    targets.forEach(function (textNode) {
+        var text = textNode.nodeValue;
+        if (!/\[\d{1,2}\]/.test(text)) return;
+        var frag = document.createDocumentFragment();
+        var last = 0;
+        text.replace(/\[(\d{1,2})\]/g, function (m, num, offset) {
+            var idx = parseInt(num, 10) - 1;
+            if (idx < 0 || idx >= srcBox.querySelectorAll('.msg-source').length) return m;
+            if (offset > last) frag.appendChild(document.createTextNode(text.slice(last, offset)));
+            var sup = document.createElement('sup');
+            sup.className = 'msg-cite';
+            sup.textContent = String(idx + 1);
+            sup.title = '查看参考来源 ' + (idx + 1);
+            sup.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var rows = srcBox.querySelectorAll('.msg-source');
+                if (rows[idx]) {
+                    rows[idx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    rows[idx].classList.add('flash');
+                    setTimeout(function () { rows[idx].classList.remove('flash'); }, 1200);
+                }
+            });
+            frag.appendChild(sup);
+            last = offset + m.length;
+            return m;
+        });
+        if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+        if (textNode.parentNode) textNode.parentNode.replaceChild(frag, textNode);
+    });
 }
 
 // ===== 参考来源（web_search / web_fetch 结果里的链接）=====
@@ -4245,6 +4369,7 @@ function _processAgentEvent(eventType, data) {
                     var srcHtml = _sourcesBlockHtml(stream.sources);
                     if (srcHtml && !stream.contentEl.querySelector('.msg-sources')) {
                         stream.contentEl.insertAdjacentHTML('beforeend', srcHtml);
+                        try { _linkifyCitations(stream.contentEl); } catch (e) { console.warn(e); }
                     }
                 }
             } catch (e) { console.warn(e); }
@@ -18623,8 +18748,9 @@ function addMessage(message) {
     }
     
     // 右键 / 长按唤出气泡操作菜单（复制、引用回复、转发、删除）
-    // 历史消息里的公式/图表
+    // 历史消息里的公式/图表 + 角标
     try { enhanceRichContent(messageDiv); } catch (e) { console.warn(e); }
+    try { _linkifyCitations(messageDiv); } catch (e) { console.warn(e); }
 
     messageDiv.addEventListener('contextmenu', function (e) {
         e.preventDefault();

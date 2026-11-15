@@ -26812,3 +26812,36 @@ html.dark .dsh-reasoning-row.history {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* 语音输入按钮 */
+#voice-input-btn.recording {
+    color: #fff;
+    background: var(--danger, #EF4444);
+    animation: voice-pulse 1.2s ease-in-out infinite;
+}
+@keyframes voice-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, .45); }
+    50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+/* 正文引用角标 */
+.msg-cite {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    margin: 0 1px;
+    border-radius: 4px;
+    background: var(--accent-tint);
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    vertical-align: super;
+    user-select: none;
+}
+.msg-cite:hover { background: var(--accent); color: #fff; }
+.msg-source.flash { background: var(--accent-tint); }

@@ -833,6 +833,22 @@ KaTeX 2 个节点 / display 1 个 / mermaid SVG 1 个，代码文本完整未变
 
 验证：注入一条 `web_search` 工具结果（含重复链接）+ 一条 assistant 回复 → 只出现 1 个来源块、2 个去重链接，无 pageerror。
 
+
+## 第 42 轮：语音输入 + 正文引用角标（2026-11-15）
+
+### 1. 语音输入（ASR）
+- 输入工具栏新增麦克风按钮（`#voice-input-btn`），基于浏览器 **Web Speech API**（Edge/Chrome 自带，无需后端、无需额外依赖）。
+- 点击开始录音 → 说话 → 实时转写到输入框（interimResults），结束自动停止；录音时按钮变红并呼吸闪烁。
+- 不支持的环境（Firefox/内嵌 WebView 部分版本）点击会提示改用 Edge/Chrome，不报错。
+
+### 2. 正文角标
+- 新增 `_linkifyCitations(root)`：把 assistant 正文里的 `[1]`、`[2]` 等标记替换成上标小方块，
+  点击会滚动到对应的「参考来源」行并高亮（`.msg-source.flash`）。
+- 只处理纯文本节点，跳过 `pre / code / a / .msg-sources / .katex / .mermaid-block`，不会破坏代码和公式。
+- 在线（done）与历史（addMessage）两条路径都会执行。
+
+验证：注入 `web_search` 结果 + 含 `[1]` `[2]` 的 assistant 回复 → 出现 1 个来源块、2 个上标角标、麦克风按钮存在，无 pageerror。
+
 ## 仍然留着的打磨项（不阻塞目标）
 
 1. 计划条从 Composer 上方移进消息流（现在是顶部 dock，功能完整）。
