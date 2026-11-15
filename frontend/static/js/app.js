@@ -1342,6 +1342,46 @@ function renderCodeBlock(code, language) {
     `;
 }
 
+// ===== 参考来源（web_search / web_fetch 结果里的链接）=====
+var _SOURCE_TOOL_RE = /web_search|web_fetch|web_browse|search_web|fetch_url|deepseek_web_search|deepseek_read_url/i;
+var _pendingSources = [];
+
+function _extractSourceUrls(text) {
+    var out = [];
+    if (!text) return out;
+    var re = /https?:\/\/[^\s"'<>)\]}]+/g;
+    var m;
+    while ((m = re.exec(String(text))) !== null) {
+        var u = m[0].replace(/[.,;:!?]+$/, "");
+        if (u.indexOf("api.") >= 0 && u.length > 120) continue;
+        if (out.indexOf(u) < 0) out.push(u);
+        if (out.length >= 12) break;
+    }
+    return out;
+}
+
+function _mergeSources(list, urls) {
+    (urls || []).forEach(function (u) {
+        if (list.indexOf(u) < 0) list.push(u);
+    });
+    return list;
+}
+
+function _sourcesBlockHtml(urls) {
+    if (!urls || !urls.length) return "";
+    var items = urls.map(function (u, i) {
+        var domain = u;
+        try { domain = new URL(u).hostname.replace(/^www\./, ""); } catch (e) {}
+        var shortUrl = u.length > 78 ? u.slice(0, 78) + "…" : u;
+        return '<a class="msg-source" href="' + escapeHtml(u) + '" target="_blank" rel="noopener">'
+            + '<span class="msg-source-idx">' + (i + 1) + '</span>'
+            + '<span class="msg-source-domain">' + escapeHtml(domain) + '</span>'
+            + '<span class="msg-source-url">' + escapeHtml(shortUrl) + '</span></a>';
+    }).join("");
+    return '<div class="msg-sources"><div class="msg-sources-head"><i class="fas fa-link"></i>'
+        + ' 参考来源 · ' + urls.length + '</div>' + items + '</div>';
+}
+
 // ===== 富内容增强：KaTeX 公式 + Mermaid 图表 =====
 var _mermaidInited = false;
 var _mermaidTheme = "";
@@ -2248,6 +2288,7 @@ function _createStreamMessage(roleLabel, badge) {
         toolsCount: 0,
         toolsDone: 0,
         usage: { input: 0, output: 0, model: '' },
+        sources: [],
     };
     _startThinkTimer(stream);
     return stream;
@@ -4026,14 +4067,19 @@ function _processAgentEvent(eventType, data) {
             const matchedCard = (data.call_id && stream.callCards && stream.callCards[data.call_id])
                 ? stream.callCards[data.call_id]
                 : toolCards[toolCards.length - 1];
+            var _toolOutput = data.output || data.result || data.preview || '';
             if (matchedCard) {
                 _updateToolCardResult(
                     matchedCard,
                     data.name || '',
-                    data.output || data.result || data.preview || '',
+                    _toolOutput,
                     data.success,
                     data
                 );
+            }
+            // 搜索/抓网页类工具：从结果里收集参考来源
+            if (data.name && _SOURCE_TOOL_RE.test(data.name)) {
+                _mergeSources(stream.sources, _extractSourceUrls(_toolOutput));
             }
             scrollToBottom();
 
@@ -4193,6 +4239,15 @@ function _processAgentEvent(eventType, data) {
             stream.actionsEl.style.display = '';
             _stopThinkTimer(stream);
             _hideApprovalDock();
+            // 参考来源卡片
+            try {
+                if (stream.sources && stream.sources.length) {
+                    var srcHtml = _sourcesBlockHtml(stream.sources);
+                    if (srcHtml && !stream.contentEl.querySelector('.msg-sources')) {
+                        stream.contentEl.insertAdjacentHTML('beforeend', srcHtml);
+                    }
+                }
+            } catch (e) { console.warn(e); }
             // 定稿后渲染公式与图表（流式过程中不渲染，避免反复重排）
             try { enhanceRichContent(stream.contentEl); } catch (e) { console.warn(e); }
             _currentAgentStream = null;
@@ -18461,6 +18516,9 @@ function addMessage(message) {
     }
     // 历史里的工具调用：重建一张工具卡片（和在线时的样式一致）
     if (message.role === 'tool_call') {
+        if (message.name && _SOURCE_TOOL_RE.test(message.name)) {
+            _mergeSources(_pendingSources, _extractSourceUrls(message.output || ''));
+        }
         const wrap = document.createElement('div');
         wrap.className = 'message-tool-call';
         let card = null;
@@ -18533,7 +18591,7 @@ function addMessage(message) {
                 <span class="message-time">${formatTime(message.time)}</span>
             </div>
             ${reasoningHtml}
-            <div class="message-content">${contentHtml}</div>
+            <div class="message-content">${contentHtml}${(!isUser && _pendingSources.length) ? _sourcesBlockHtml(_pendingSources.splice(0)) : ''}</div>
             ${(!isUser && message.think_ms && !reasoningHtml) ? '<div class="agent-think-timer"><i class="fas fa-clock"></i><span class="think-timer-text">思考耗时 ' + (Number(message.think_ms) / 1000).toFixed(1) + 's</span></div>' : ''}
             <div class="message-actions">
                 <button class="msg-action-btn" onclick="copyMessage(this)" title="复制">

@@ -819,6 +819,20 @@ ERROR: Hidden import 'pywinauto' not found
 验证：同一条消息里同时含行内公式、显示公式、python 代码块（含 `<`、`&`、`$$`）、mermaid 流程图 →
 KaTeX 2 个节点 / display 1 个 / mermaid SVG 1 个，代码文本完整未变形，无 pageerror。
 
+
+## 第 41 轮：参考来源卡片（2026-11-15）
+
+借鉴 chat-demo 的「source citations」，先做**来源聚合卡片**（不依赖模型输出角标，零协议改动）：
+
+- 新增 `_extractSourceUrls()`：从工具输出里正则提取 http(s) 链接，去重、限量 12 条。
+- 新增 `_sourcesBlockHtml()`：渲染「参考来源 · N」块，每行 = 序号 + 域名 + 截断 URL，点击新窗口打开。
+- **在线**：`tool_result` 事件里，若工具名匹配 `web_search / web_fetch / web_browse / deepseek_web_search / deepseek_read_url`，
+  把结果里的链接并入 `stream.sources`，`done` 时挂到气泡底部。
+- **历史**：`addMessage` 收到 `tool_call` 项时收集链接到 `_pendingSources`，下一条 assistant 消息渲染时插入并清空（与工具卡片的顺序天然对齐）。
+- 样式：`.msg-sources` 半透明卡片 + 圆形序号 + 域名加粗 + URL 省略号。
+
+验证：注入一条 `web_search` 工具结果（含重复链接）+ 一条 assistant 回复 → 只出现 1 个来源块、2 个去重链接，无 pageerror。
+
 ## 仍然留着的打磨项（不阻塞目标）
 
 1. 计划条从 Composer 上方移进消息流（现在是顶部 dock，功能完整）。
