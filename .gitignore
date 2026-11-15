@@ -67,3 +67,11 @@ desktop.ini
 /*.mp4
 /*.mov
 /*.avi
+
+# ===== 本地调试/临时脚本（不随仓库发布）=====
+/_diag_*.py
+/_repro*.py
+/_verify_*.py
+/dbg_*.txt
+/dbtest.txt
+/run_built_test.ps1
