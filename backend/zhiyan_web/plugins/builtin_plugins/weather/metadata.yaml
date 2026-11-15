@@ -1,0 +1,10 @@
+name: weather
+author: ZhiYan
+desc: 查询天气预报，支持 /weather 命令
+short_desc: 天气查询
+version: 1.0.0
+repo: ""
+support_platforms:
+  - webchat
+  - qq
+astrbot_version: ">=4.16,<5"

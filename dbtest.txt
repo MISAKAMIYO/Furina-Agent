@@ -1,0 +1,2 @@
+apps keys: character,poke,profile,stat,wiki,gacha,admin,help,alias
+dispatch: {"replyed":true,"matchedRule":"profile.profileList","items":"image"}

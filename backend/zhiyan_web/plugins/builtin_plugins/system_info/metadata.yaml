@@ -1,0 +1,10 @@
+name: system_info
+author: ZhiYan
+desc: 获取系统运行状态信息，支持 /sysinfo、/status 等命令
+short_desc: 系统信息查看
+version: 1.0.0
+repo: ""
+support_platforms:
+  - webchat
+  - qq
+astrbot_version: ">=4.16,<5"

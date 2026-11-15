@@ -1,0 +1,10 @@
+name: calculator
+author: ZhiYan
+desc: 提供数学计算命令，支持 /calc、/fib、/prime 等命令
+short_desc: 数学计算工具
+version: 1.0.0
+repo: ""
+support_platforms:
+  - webchat
+  - qq
+astrbot_version: ">=4.16,<5"

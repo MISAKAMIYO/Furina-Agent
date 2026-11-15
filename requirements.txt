@@ -1,0 +1,68 @@
+# =============================================================================
+# ZhiYan Agent Web - 核心依赖
+# =============================================================================
+#
+# 兼容性基线：
+#   - Windows 10/11、macOS、Linux  : 推荐 Python 3.10+
+#   - Windows 7                   : 必须使用 Python 3.8.10（3.9+ 官方不再支持 Win7）
+#
+# 所有版本均已验证可运行于 Python 3.8 ~ 3.13。
+# 安装：pip install -r requirements.txt
+#
+# 平台差异说明（在对应系统上额外执行）：
+#   - macOS TTS(pyttsx3)：  pip install pyobjc
+#   - Linux TTS(pyttsx3)：  需系统安装 espeak/espeak-ng，并自行 .so 或 pip install pyttsx3
+#   - Windows：             可选 pip install pywin32（增强桌面自动化/剪贴板）
+#   - 桌面后端(全部平台)：  浏览器自动化需 playwright install chromium
+# =============================================================================
+
+# --- Web 框架 ---
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.12
+pydantic==2.9.2
+
+# --- HTTP 客户端 ---
+requests==2.32.3
+httpx==0.27.2
+aiohttp==3.9.5
+
+# --- TTS (语音合成) ---
+edge-tts==6.1.13
+pyttsx3==2.98
+
+# --- 桌面应用 ---
+pywebview==5.1.0
+
+# --- 音乐处理 ---
+mutagen==1.47.0
+
+# --- 配置与加密 ---
+PyYAML==6.0.2
+pycryptodome==3.20.0
+
+# --- LLM 相关 ---
+tiktoken==0.7.0
+
+# --- 工具 ---
+pyperclip==1.9.0
+
+# --- 传输层 ---
+urllib3==2.2.3
+
+# --- 跨平台系统操作（电脑操控 / 进程 / 屏幕） ---
+# psutil：获取 CPU/内存/进程信息，跨平台
+psutil==5.9.8
+# pyautogui：桌面鼠标键盘模拟与屏幕截图，跨平台（依赖 Pillow）
+pyautogui==0.9.54
+Pillow==10.4.0
+
+# --- AI 授课子系统（可选：缺失时对应功能自动降级，不影响软件启动） ---
+# python-pptx：生成 .pptx 教学幻灯片（缺失时仅输出 HTML 幻灯片）
+python-pptx==0.6.23
+# RapidOCR 离线 OCR：图片/截图题目识别、课件页文字识别、BetterGI 图像兜底（纯 onnxruntime，离线可用）
+# Python 3.13+ 使用新版 rapidocr（自带模型下载与新版 API）；3.8~3.12 使用已锁定的 rapidocr-onnxruntime
+rapidocr-onnxruntime==1.4.4; python_version < "3.13"
+rapidocr[onnxruntime]==3.10.0; python_version >= "3.13"
+# faster-whisper：本地离线语音识别（缺失时降级到云端/浏览器 ASR）
+faster-whisper==1.1.0

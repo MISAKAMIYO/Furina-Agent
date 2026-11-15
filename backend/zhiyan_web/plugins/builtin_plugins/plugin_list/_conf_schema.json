@@ -1,0 +1,21 @@
+{
+  "image_width": { "type": "int", "default": 800, "description": "图片宽度（px）" },
+  "image_height_per_plugin": { "type": "int", "default": 120, "description": "每个插件区块高度（px）" },
+  "font_size_title": { "type": "int", "default": 28, "description": "标题字号（px）" },
+  "font_size_plugin_name": { "type": "int", "default": 18, "description": "插件名字号（px）" },
+  "font_size_command": { "type": "int", "default": 14, "description": "命令字号（px）" },
+  "font_size_desc": { "type": "int", "default": 12, "description": "描述字号（px）" },
+  "bg_color": { "type": "str", "default": "#F5F5F5", "description": "背景色（十六进制）" },
+  "card_color": { "type": "str", "default": "#FFFFFF", "description": "卡片底色" },
+  "text_color": { "type": "str", "default": "#333333", "description": "正文颜色" },
+  "accent_color": { "type": "str", "default": "#4A90D9", "description": "强调色" },
+  "border_color": { "type": "str", "default": "#E0E0E0", "description": "边框颜色" },
+  "show_plugin_version": { "type": "bool", "default": true, "description": "是否显示版本号" },
+  "show_plugin_author": { "type": "bool", "default": false, "description": "是否显示作者" },
+  "show_command_count": { "type": "bool", "default": false, "description": "是否在卡片上显示命令数量" },
+  "default_font": { "type": "str", "default": "", "description": "自定义字体路径（留空用系统默认）" },
+  "output_format": { "type": "str", "default": "png", "description": "输出图片格式 (png/jpeg/webp)" },
+  "output_quality": { "type": "int", "default": 95, "description": "输出图片质量 (1-100，jpeg/webp 生效)" },
+  "max_plugins": { "type": "int", "default": 0, "description": "最多展示的插件数（0 表示不限制）" },
+  "footer_note": { "type": "str", "default": "", "description": "自定义底部备注" }
+}

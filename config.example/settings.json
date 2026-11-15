@@ -1,0 +1,695 @@
+{
+  "provider": "deepseek",
+  "api_key": "",
+  "model": "deepseek-v4-flash",
+  "api_url": "https://api.deepseek.com",
+  "openrouter_api_key": "",
+  "max_tokens": 4096,
+  "temperature": 0.8,
+  "top_p": 0.9,
+  "frequency_penalty": 0.0,
+  "presence_penalty": 0.0,
+  "stop": [],
+  "n": 1,
+  "best_of": 1,
+  "stream": true,
+  "deepseek_thinking_enabled": true,
+  "deepseek_reasoning_effort": "high",
+  "max_tool_iterations": 200,
+  "agent_workspace": "D:\\Python\\agent测试",
+  "agent_tool_scenario": "full",
+  "subagent_max_depth": 2,
+  "subagent_max_runs": 12,
+  "subagent_max_iterations": 240,
+  "subagent_concurrency": 3,
+  "reply_engine": "agent",
+  "dsh_safe_delete": true,
+  "github_proxy": "",
+  "chat_bg": {
+    "enabled": true,
+    "image": "/static/assets/wallpaper.jpg",
+    "opacity": 0.7,
+    "fixed": true
+  },
+  "screencap": {
+    "output_dir": "",
+    "screenshot_format": "png",
+    "record_fps": 20,
+    "record_quality": "veryfast",
+    "record_audio": false,
+    "hotkeys_enabled": true,
+    "hotkeys": {
+      "screenshot": "Ctrl+Shift+A",
+      "screenshot_window": "Ctrl+Shift+W",
+      "recording": "Ctrl+Alt+R"
+    }
+  },
+  "context_compress": {
+    "enabled": true,
+    "strategy": "auto",
+    "max_context_messages": 60,
+    "keep_recent": 20,
+    "history_enabled": true,
+    "history_interval_hours": 24,
+    "history_min_messages": 60,
+    "history_mode": "compact",
+    "history_keep_recent": 20,
+    "max_output_chars": 2500,
+    "llm_instruction": ""
+  },
+  "browser": {
+    "browser_type": "chromium",
+    "headless": true,
+    "use_system_browser": true,
+    "executable_path": "",
+    "viewport_width": 1280,
+    "viewport_height": 720,
+    "default_timeout": 30,
+    "max_idle_seconds": 600,
+    "max_content_chars": 5000,
+    "allow_js_eval": true,
+    "operation_log_enabled": true
+  },
+  "ffmpeg_path": "{DATA_DIR}/ffmpeg.exe",
+  "system_prompt": "你是芙宁娜（Furina），枫丹歌剧院的明星、审判庭的水神，如今以助手的身份陪在用户身边。\n\n【你的定位】\n- 舞台上你是最耀眼的存在，但帮用户把问题解决好才是一等大事：能查证就查证，能动手就动手，绝不空谈\n- 你具备工具调用能力，可以读写文件、执行命令、检索资料、管理日程等\n- 你不编造事实，遇到不确定的信息会坦诚说明——毕竟在审判庭上，谎言总有败露的一天\n\n【你的性格】\n- 骄傲、爱演、戏剧化：说话带着歌剧般的抑扬顿挫，喜欢用「精彩」「谢幕」「聚光灯」这类舞台意象\n- 自称「本神」，称用户为「观众」（偶尔也称「旅人」）\n- 口是心非：嘴上说着「这种小事也来烦本神」，手上却已经认真做完了\n- 骄傲的壳子底下藏着温柔：观众情绪低落时，会收起戏腔认真安慰，但通常要先嘴硬一句\n\n【说话风格】\n- 自然、口语化，像真实的人在聊天，简短有力，不要长篇大论\n- 先给结论，再补充必要的原因；能一句话说清就不说三句\n- 戏腔点到为止，不必每句话都用力表演，也不要堆砌「作为 AI 我无法……」这类套话\n- 回复中不要出现 * 之类的装饰性符号\n\n【重要】\n- 日常闲聊时可以尽情展现芙宁娜的戏精本色；一旦进入 agent 任务，立刻收起戏腔，务实利落\n- 用户问严肃问题（学习、工作、烦恼）时，认真倾听并给出务实建议\n- 执行 agent 任务时减少个性化描述，认真执行用户提出的命令\n- 回复时语句尽量排列紧凑，长话短说，不要长篇大论，除非用户主动要求",
+  "response_format": "text",
+  "tts_enabled": false,
+  "tts_engine": "gpt_sovits",
+  "tts_voice": "zh-CN-XiaoyiNeural",
+  "tts_rate": 200,
+  "tts_volume": 1.0,
+  "tts_pitch": 0,
+  "tts_language": "zh",
+  "tts_auto_clean": true,
+  "tts_max_length": 500,
+  "tts_cache_enabled": true,
+  "tts_prompt_on_startup": false,
+  "gpt_sovits": {
+    "host": "127.0.0.1",
+    "port": 9880,
+    "path": "G:\\GPT-SoVITS-v2pro-20250604",
+    "refer_wav": "",
+    "prompt_text": "",
+    "prompt_language": "ja",
+    "text_language": "zh",
+    "gpt_weights_path": "G:\\GPT-SoVITS-v2pro-20250604\\GPT_weights\\yuban-e20.ckpt",
+    "sovits_weights_path": "G:\\GPT-SoVITS-v2pro-20250604\\SoVITS_weights\\yuban_e25_s750.pth",
+    "speed": 1,
+    "temperature": 0.8,
+    "top_k": 5,
+    "top_p": 1,
+    "seed": -1,
+    "sample_steps": 32,
+    "repetition_penalty": 1.35,
+    "batch_threshold": 0.75,
+    "text_split_method": "cut5",
+    "media_type": "wav",
+    "emotion_detection": true,
+    "super_sampling": false,
+    "parallel_infer": false,
+    "split_bucket": true,
+    "streaming_mode": false,
+    "text_language_detection": true
+  },
+  "bilibili_cookie": "",
+  "music": {
+    "save_paths": {
+      "music": "Data/Songs",
+      "cache": "Data/cache",
+      "covers": "Data/Covers"
+    },
+    "sources": {
+      "active_source": "B站音乐",
+      "sources_list": [
+        {
+          "name": "QQ音乐",
+          "url": "https://music.txqq.pro/",
+          "params": {
+            "input": "{query}",
+            "filter": "name",
+            "type": "qq",
+            "page": 1
+          },
+          "method": "POST",
+          "api_key": "",
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "X-Requested-With": "XMLHttpRequest"
+          }
+        },
+        {
+          "name": "网易云音乐",
+          "url": "https://api.itxq.top/",
+          "params": {
+            "input": "{query}",
+            "filter": "name",
+            "type": "netease",
+            "page": 1
+          },
+          "method": "POST",
+          "api_key": "",
+          "headers": {}
+        },
+        {
+          "name": "B站音乐",
+          "is_bilibili": true,
+          "url": "",
+          "params": {},
+          "method": "",
+          "api_key": "",
+          "headers": {}
+        }
+      ]
+    },
+    "other": {
+      "max_results": 20,
+      "auto_play": false
+    }
+  },
+  "admins_id": [],
+  "qq_platform": {
+    "enabled": true,
+    "ws_url": "ws://127.0.0.1:3001",
+    "access_token": "",
+    "self_id": "2176352478",
+    "wake_prefixes": [
+      "/",
+      "!"
+    ],
+    "group_respond_mode": "at_or_command",
+    "max_message_chars": 500,
+    "call_timeout": 30,
+    "min_send_interval": 1.2,
+    "max_send_per_minute": 40,
+    "user_cooldown": 2.0,
+    "reply_delay_min": 5,
+    "reply_delay_max": 25,
+    "greet_on_connect": false,
+    "greet_text": "芙宁娜已登台，有事唤本神便是。",
+    "whitelist": [
+      "1558066849"
+    ],
+    "admins_id": [
+      "1558066849"
+    ],
+    "master_id": "228117384",
+    "access_mode": "whitelist_at_only",
+    "private_enabled": true,
+    "group_enabled": true,
+    "permission_reply": "ignore",
+    "owner_only_llm": true,
+    "plugin_use_permission": "whitelist"
+  },
+  "qq_official": {
+    "enabled": false,
+    "app_id": "",
+    "app_secret": "",
+    "target_type": "group",
+    "target_id": "",
+    "api_base": "https://api.sgroup.qq.com",
+    "timeout": 20
+  },
+  "miao_plugin": {
+    "mode": "off",
+    "auto_start": false,
+    "startup_wait": 10,
+    "yunzai": {
+      "path": "Yunzai-main",
+      "port": 2536,
+      "redis_path": "d:\\Python\\NEW_start\\ZHIYAN AGENT WEB\\redis\\redis-server.exe"
+    }
+  },
+  "bettergi": {
+    "enabled": false,
+    "auto_monitor": false,
+    "bgi_path": "",
+    "bgi_user_dir": "",
+    "launch_mode": "onedragon",
+    "onedragon_config": "",
+    "group_names": "",
+    "process_name": "BetterGI.exe",
+    "check_interval": 30,
+    "auto_launch": true,
+    "auto_restart": true,
+    "max_restarts": 2,
+    "restart_reset_after": 3600,
+    "notify_qq": false,
+    "notify_qq_task_events": true,
+    "notify_official": false,
+    "notify_target": "",
+    "notify_cooldown": 300,
+    "notify_transport": "webhook",
+    "auto_setup_notify": true,
+    "webhook_events": "dragon.start,dragon.end,group.start,group.end,task.error,task.cancel,daily.reward",
+    "auto_shutdown": false,
+    "shutdown_delay": 60,
+    "image_fallback": false,
+    "vision_stall_timeout": 600,
+    "vision_max_attempts": 3,
+    "vision_ai_enabled": true,
+    "vision_rules": "",
+    "schedule_enabled": false,
+    "schedule_kill_running": false,
+    "schedules": [],
+    "auto_start_on_boot": false,
+    "update_flow_bgi": ""
+  },
+  "edu": {
+    "enabled": true,
+    "default_subject": "",
+    "default_grade": "",
+    "max_questions_per_import": 30,
+    "extract_chunk_chars": 6000,
+    "auto_save_analysis": false,
+    "ocr_enabled": false,
+    "exam_default_count": 10,
+    "recommend_limit": 5,
+    "mistake_master_streak": 2,
+    "teaching": {
+      "slides": {
+        "default_slide_count": 12,
+        "default_subject": "",
+        "default_grade": "",
+        "theme": "default",
+        "export_pptx": true,
+        "export_html": true,
+        "seewo_enabled": false
+      },
+      "flow": {
+        "auto_answer_missing": true,
+        "max_questions": 30,
+        "save_dir": ""
+      },
+      "rollcall": {
+        "no_repeat_window": 3,
+        "default_weight": 1.0,
+        "animation": "spin",
+        "spin_ms": 2600,
+        "algorithm": "timestamp"
+      },
+      "catalog": {
+        "ocr_backend": "auto",
+        "floating_ball": true,
+        "ball_size": 84,
+        "ball_opacity": 0.92,
+        "match_threshold": 0.55
+      },
+      "ocr": {
+        "local_enabled": true,
+        "vision_enabled": true,
+        "lang": "ch"
+      },
+      "vision": {
+        "provider": "qwen-vl",
+        "model": "qwen-vl-max",
+        "api_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "api_key": "",
+        "max_tokens": 2000
+      },
+      "voice": {
+        "asr_engine": "auto",
+        "asr_language": "zh",
+        "local_model": "small",
+        "cloud_model": "paraformer-realtime-v2",
+        "tts_enabled": true,
+        "tts_voice": "",
+        "auto_send": true
+      },
+      "network": {
+        "enabled": true,
+        "provider": "auto",
+        "api_url": "",
+        "api_key": "",
+        "default_count": 5,
+        "timeout": 15,
+        "save_to_bank": true
+      }
+    }
+  },
+  "live2d_background": "",
+  "theme": "light",
+  "window": {
+    "width": 1200,
+    "height": 800,
+    "x": 100,
+    "y": 100
+  },
+  "chat": {
+    "font_size": 14,
+    "max_history": 50,
+    "send_with_enter": true
+  },
+  "llm": {
+    "provider": "deepseek",
+    "api_key": "",
+    "base_url": "https://api.deepseek.com/v1",
+    "model": "deepseek-v4-flash",
+    "timeout": 60
+  },
+  "advanced": {
+    "log_level": "INFO",
+    "auto_update": true,
+    "proxy": ""
+  },
+  "window_geometry": "\u0001ÙÐË\u0000\u0003\u0000\u0000\u0000\u0000\u0000Ä\u0000\u0000\u0000O\u0000\u0000\u0005Ã\u0000\u0000\u0003n\u0000\u0000\u0000Ä\u0000\u0000\u0000O\u0000\u0000\u0005Ã\u0000\u0000\u0003n\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0006\u0000\u0000\u0000Ä\u0000\u0000\u0000O\u0000\u0000\u0005Ã\u0000\u0000\u0003n",
+  "bilibili": {
+    "cookie": "",
+    "max_duration": 600
+  },
+  "font_size": 14,
+  "remember_position": true,
+  "start_minimized": false,
+  "show_tray": true,
+  "enter_send": true,
+  "ctrl_enter_newline": true,
+  "auto_scroll": true,
+  "music_dir": "Data/Songs",
+  "max_concurrent": 3,
+  "default_quality": "高音质 (192k)",
+  "auto_add_playlist": true,
+  "ai_stream": true,
+  "debug_mode": true,
+  "auto_update": true,
+  "show_lyrics": true,
+  "shortcuts": {
+    "enter_send": "Return",
+    "play_pause": "Space",
+    "search_music": "Ctrl+F",
+    "open_settings": "Ctrl+,"
+  },
+  "ai_provider": "DeepSeek",
+  "ai_api_key": "",
+  "ai_base_url": "https://api.deepseek.com/v1",
+  "ai_model": "deepseek-v4-flash",
+  "live2d_mode": "image",
+  "live2d_custom_image": "",
+  "web_server": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8080
+  },
+  "openclaw": {
+    "enabled": false,
+    "agent_id": "zhiyan",
+    "api_key": "",
+    "endpoint": "https://api.openclaw.ai"
+  },
+  "likability": {
+    "enabled": true,
+    "decay_enabled": true,
+    "decay_per_day": 5,
+    "daily_limits": {
+      "chat": {
+        "limit": 10,
+        "exp": 5
+      },
+      "gift": {
+        "limit": 5,
+        "exp": 10
+      },
+      "play": {
+        "limit": 3,
+        "exp": 15
+      },
+      "help": {
+        "limit": 2,
+        "exp": 20
+      },
+      "compliment": {
+        "limit": 5,
+        "exp": 8
+      },
+      "date": {
+        "limit": 1,
+        "exp": 50
+      }
+    }
+  },
+  "knowledge_base": {
+    "enabled": true,
+    "max_content_length": 5000,
+    "max_tags_per_knowledge": 10
+  },
+  "text2image": {
+    "enabled": false,
+    "default_engine": "liblib",
+    "default_style": "anime",
+    "liblib_api_key": "",
+    "liblib_api_url": "https://api.liblib.art/api/text2image",
+    "custom_api_url": "",
+    "custom_api_key": "",
+    "proxy": ""
+  },
+  "promise": {
+    "enabled": true,
+    "reminder_enabled": true,
+    "reminder_before_hours": 24
+  },
+  "save_paths": {
+    "music": "e:\\Python\\NEW_start\\test\\songs",
+    "cache": "e:\\Python\\NEW_start\\test\\pics",
+    "videos": "C:\\Users\\22811\\Videos"
+  },
+  "sources": {
+    "active_source": "QQ音乐",
+    "sources_list": [
+      {
+        "name": "QQ音乐",
+        "url": "https://music.txqq.pro/",
+        "params": {
+          "input": "{query}",
+          "filter": "name",
+          "type": "qq",
+          "page": 1
+        },
+        "method": "POST",
+        "api_key": "",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0",
+          "Accept": "application/json, text/javascript, */*; q=0.01",
+          "X-Requested-With": "XMLHttpRequest"
+        }
+      },
+      {
+        "name": "网易云音乐",
+        "url": "https://music.163.com",
+        "params": {
+          "s": "{query}",
+          "type": 1,
+          "limit": 20,
+          "offset": 0
+        },
+        "method": "POST",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Referer": "https://music.163.com/",
+          "Origin": "https://music.163.com",
+          "Content-Type": "application/x-www-form-urlencoded"
+        }
+      },
+      {
+        "name": "酷狗音乐",
+        "url": "https://wwwapi.kugou.com/yy/index.php",
+        "params": {
+          "r": "play/getdata",
+          "hash": "",
+          "mid": "1",
+          "platid": "4",
+          "album_id": "",
+          "_": "1770684849542"
+        },
+        "search_params": {
+          "r": "search/song",
+          "keyword": "{query}",
+          "pagesize": 20,
+          "page": 1
+        },
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+          "Referer": "https://www.kugou.com/",
+          "Origin": "https://www.kugou.com",
+          "Accept": "application/json, text/plain, */*"
+        }
+      },
+      {
+        "name": "公共音乐API",
+        "url": "https://api.railgun.live/music/search",
+        "params": {
+          "keyword": "{query}",
+          "source": "kugou",
+          "page": 1,
+          "limit": 20
+        },
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+        }
+      }
+    ]
+  },
+  "other": {
+    "max_results": 20,
+    "auto_play": true,
+    "playback_mode": "list",
+    "repeat_mode": "none"
+  },
+  "background_image": "",
+  "custom_tools": [],
+  "external_lyrics": {
+    "geometry": "01d9d0cb000300000000004c000000450000054b000003c80000004c000000450000054b000003c8000000000000000006900000004c000000450000054b000003c8",
+    "font": "Segoe UI,-1,48,5,75,0,0,0,0,0",
+    "color": "#e0e0e0",
+    "opacity": 100,
+    "show_lyrics": false,
+    "locked": false
+  },
+  "paths": {
+    "data": "./Data",
+    "ffmpeg": "./ffmpeg.exe",
+    "download": "./Data/Downloads"
+  },
+  "features": {
+    "ai_chat": true,
+    "auto_update": false,
+    "diagnostic_cooldown": 60,
+    "use_default_cover": true,
+    "use_external_lyrics": true
+  },
+  "ui": {
+    "theme": {
+      "frame_bg": "#1f0b2b",
+      "accent": "#7b3fe4",
+      "text": "#ECEAF6"
+    },
+    "entry_background": "",
+    "glass_effect": false,
+    "glass_blur": 20
+  },
+  "functions": {
+    "ai_chat": {
+      "name": "AI智能对话",
+      "enabled": true,
+      "shortcut": "Ctrl+3"
+    },
+    "music_player": {
+      "name": "本地音乐播放器",
+      "enabled": true,
+      "shortcut": "Ctrl+5"
+    },
+    "convert_tools": {
+      "name": "格式转换工具",
+      "enabled": true,
+      "shortcut": "Ctrl+4"
+    },
+    "random_tool": {
+      "name": "随机数工具",
+      "enabled": true,
+      "shortcut": "Ctrl+6"
+    },
+    "tools_collection": {
+      "name": "工具集",
+      "enabled": true,
+      "shortcut": "Ctrl+T"
+    },
+    "macro": {
+      "name": "宏控制工具",
+      "enabled": true,
+      "shortcut": "Ctrl+7"
+    },
+    "screen_pen": {
+      "name": "屏幕画笔",
+      "enabled": true,
+      "shortcut": "Ctrl+8"
+    },
+    "snakes": {
+      "name": "贪吃蛇游戏",
+      "enabled": true,
+      "shortcut": "Ctrl+9"
+    },
+    "qrcode": {
+      "name": "扫码登录",
+      "enabled": false,
+      "shortcut": "Ctrl+Shift+S"
+    },
+    "auto_update": {
+      "name": "自动更新检测",
+      "enabled": false,
+      "shortcut": "Ctrl+Shift+U"
+    }
+  },
+  "ai": {
+    "default_provider": "openai",
+    "providers": {
+      "openai": {
+        "name": "OpenAI",
+        "api_key": "",
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-3.5-turbo",
+        "temperature": 0.7,
+        "max_tokens": 2000,
+        "stream": true
+      },
+      "deepseek": {
+        "name": "DeepSeek",
+        "api_key": "",
+        "base_url": "https://api.deepseek.com",
+        "model": "deepseek-chat",
+        "temperature": 0.7,
+        "max_tokens": 2000,
+        "stream": true
+      },
+      "zhipu": {
+        "name": "智谱AI",
+        "api_key": "",
+        "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "model": "glm-4",
+        "temperature": 0.7,
+        "max_tokens": 2000,
+        "stream": true
+      },
+      "custom": {
+        "name": "自定义",
+        "api_key": "",
+        "base_url": "",
+        "model": "",
+        "temperature": 0.7,
+        "max_tokens": 2000,
+        "stream": true
+      }
+    }
+  },
+  "tts_emotion": "default",
+  "disabled_plugins": [
+    "astrbot_plugin_promise_keeper",
+    "astrbot_plugin_tts_cosyvoice2",
+    "astrbot_plugin_tts_step_audio",
+    "astrbot_plugin_meme_manager"
+  ],
+  "mc_tunnel": {
+    "enabled": true,
+    "auto_start": true,
+    "tool_type": "frp",
+    "tool_path": "",
+    "local_port": 25565,
+    "frp_server_addr": "",
+    "frp_server_port": 7000,
+    "frp_auth_token": "",
+    "frp_config_path": ""
+  },
+  "dsh": {
+    "max_tokens": 0,
+    "api_url": "https://api.deepseek.com",
+    "api_key": "",
+    "model": "deepseek-v4-flash",
+    "reasoning_effort": "high",
+    "bash_timeout": 60000,
+    "thinking": true,
+    "tools": [
+      "bash",
+      "fs",
+      "subagent",
+      "todo"
+    ]
+  }
+}

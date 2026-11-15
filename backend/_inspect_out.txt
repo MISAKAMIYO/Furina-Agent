@@ -1,0 +1,35 @@
+﻿python : WARNING ZhiYanWeb.star: 参考音频不存在: D:\Python\NEW_start\ZHIYAN AGENT WEB\data\plugins\astrbot_plugin_gpt_sovits\r
+eference_audio\温柔参考.wav (情绪: 優しく言う)
+At line:15 char:4757
++ ... @vscode\ripgrep\bin'; python _inspect_box_full.py *> _inspect_out.txt
++                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING ZhiYanW...wav (情绪: 優しく言う):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING ZhiYanWeb.star: 参考音频不存在: D:\Python\NEW_start\ZHIYAN AGENT WEB\data\plugins\astrbot_plugin_gpt_sovits\reference_
+audio\开心参考.wav (情绪: 嬉しそうに言う)
+WARNING ZhiYanWeb.star: 参考音频不存在: D:\Python\NEW_start\ZHIYAN AGENT WEB\data\plugins\astrbot_plugin_gpt_sovits\reference_
+audio\生气参考.wav (情绪: 怒って言う)
+WARNING ZhiYanWeb.star: 参考音频不存在: D:\Python\NEW_start\ZHIYAN AGENT WEB\data\plugins\astrbot_plugin_gpt_sovits\reference_
+audio\惊讶参考.wav (情绪: 驚いて言う)
+warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+WARNING ZhiYanWeb.star: JM-Cosmos II 调试模式已启用
+C:\Users\22811\AppData\Local\Programs\Python\Python314\Lib\site-packages\pydub\utils.py:170: RuntimeWarning: Couldn't f
+ind ffmpeg or avconv - defaulting to ffmpeg, but may not work
+  warn("Couldn't find ffmpeg or avconv - defaulting to ffmpeg, but may not work", RuntimeWarning)
+ERROR data.plugins.astrbot_plugin_pixiv.main: Pixiv 认证信息未配置完整！插件将无法正常工作。
+ERROR data.plugins.astrbot_plugin_pixiv.main: 请在配置文件中设置 'pixiv_refresh_token', 'pixiv_client_id' 和 'pixiv_client_secret
+'
+CalculatorPlugin initialized
+DateTimePlugin initialized
+HelloWorldPlugin initialized
+HelpPlugin initialized
+SystemInfoPlugin initialized
+WeatherPlugin initialized
+加载完成 ok=True failed=None
+box handlers: 1
+  data.plugins.astrbot_plugin_box.main_on_command | type=partial | enabled=True
+    CommandFilter cmd='盒' alias={'开盒'} parent=[''] params={'input_id': None}
+  filter(盒) -> True, parsed={'input_id': 1668255883}
+ERROR ZhiYanWeb.star: 未在 AstrBot 配置 LLM 服务商，请检查配置
+WARNING ZhiYanWeb.star: 未启用 LLM 大模型解析文件，图片和复杂文档解析可能失败

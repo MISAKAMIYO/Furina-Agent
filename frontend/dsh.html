@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSH 内核管理 · DeepSeek Harness</title>
+<style>
+  :root{
+    --bg1:#eef2fb; --bg2:#dbe6f6; --bg-glow:rgba(63,169,245,.28);
+    --card:rgba(255,255,255,.74); --card-bd:rgba(255,255,255,.68);
+    --panel:rgba(255,255,255,.6); --panel-bd:rgba(255,255,255,.62);
+    --text:#1f2b3a; --muted:#75839a; --faint:#a8b4c6;
+    --accent:#2F7FD6; --accent-h:#2468B8; --rail:#3FA9F5; --gold:#D9A62E;
+    --ok:#16a34a; --warn:#d97706; --danger:#e5484d;
+    --radius:16px; --radius-sm:11px;
+    --shadow:0 8px 30px rgba(31,50,90,.13);
+    --shadow-soft:0 4px 16px rgba(47,127,214,.12);
+  }
+  [data-theme="dark"]{
+    --bg1:#070B1A; --bg2:#05080F; --bg-glow:rgba(240,210,122,.22);
+    --card:rgba(13,18,42,.80); --card-bd:rgba(240,210,122,.14);
+    --panel:rgba(13,18,42,.62); --panel-bd:rgba(240,210,122,.12);
+    --text:#EDF1FE; --muted:#AEB8D6; --faint:#6B7595;
+    --accent:#F0D27A; --accent-h:#F7E19A;
+    --shadow:0 8px 30px rgba(0,0,0,.55);
+    --shadow-soft:0 4px 16px rgba(240,210,122,.2);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    min-height:100vh;color:var(--text);
+    background:
+      radial-gradient(1200px 600px at 88% -10%,var(--bg-glow),transparent 60%),
+      radial-gradient(900px 500px at -10% 110%,rgba(255,197,61,.14),transparent 55%),
+      linear-gradient(135deg,var(--bg1),var(--bg2));
+    overflow:hidden;
+  }
+  .app{height:100vh;display:flex;flex-direction:column;max-width:1220px;margin:0 auto;padding:16px;gap:12px}
+  header{
+    display:flex;align-items:center;gap:12px;
+    backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+    background:var(--card);border:1px solid var(--card-bd);
+    border-radius:var(--radius);padding:10px 16px;box-shadow:var(--shadow);
+  }
+  header .title{font-size:17px;font-weight:700;display:flex;align-items:center;gap:9px;letter-spacing:.2px}
+  header .title .logo{width:30px;height:30px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:14px;background:linear-gradient(135deg,var(--accent),var(--rail));box-shadow:0 3px 10px rgba(61,139,253,.35)}
+  header .title .sub{font-size:11px;color:var(--faint);font-weight:600;letter-spacing:1.5px;margin-left:2px}
+  .spacer{flex:1}
+  .back{
+    text-decoration:none;color:var(--text);font-size:13px;
+    display:inline-flex;align-items:center;gap:6px;padding:7px 13px;
+    border-radius:999px;background:var(--accent-tint,rgba(61,139,253,.1));transition:.18s;font-weight:600;
+  }
+  .back:hover{background:rgba(61,139,253,.2);transform:translateX(-2px)}
+  [data-theme="dark"] .back{background:rgba(255,255,255,.06)}
+  .status-pill{font-size:12.5px;font-weight:600;padding:6px 14px;border-radius:999px;
+    display:inline-flex;align-items:center;gap:7px;background:rgba(122,134,149,.14);color:var(--muted)}
+  .status-pill .dot{width:9px;height:9px;border-radius:50%;background:currentColor}
+  .status-pill.running{background:rgba(22,163,74,.14);color:var(--ok)}
+  .status-pill.running .dot{box-shadow:0 0 0 0 rgba(22,163,74,.5);animation:pulse 1.6s infinite}
+  .status-pill.starting{background:rgba(217,119,6,.15);color:var(--warn)}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}70%{box-shadow:0 0 0 8px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+  nav{display:flex;gap:3px;flex-wrap:wrap;
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    background:var(--card);border:1px solid var(--card-bd);border-radius:var(--radius);padding:6px;box-shadow:var(--shadow-soft)}
+  nav button{border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:600;
+    padding:9px 16px;border-radius:999px;cursor:pointer;transition:.18s;display:inline-flex;align-items:center;gap:7px}
+  nav button:hover{background:rgba(61,139,253,.08);color:var(--text)}
+  nav button.active{background:linear-gradient(135deg,var(--accent),var(--rail));color:#fff;box-shadow:0 4px 12px rgba(61,139,253,.35)}
+  main{flex:1;overflow:hidden}
+  .panel{display:none;height:100%;flex-direction:column;
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    background:var(--card);border:1px solid var(--card-bd);border-radius:var(--radius);
+    padding:18px;box-shadow:var(--shadow);overflow:auto}
+  .panel.active{display:flex}
+  .panel h2{font-size:15px;margin-bottom:14px;display:flex;align-items:center;gap:9px;flex:none}
+  .panel h2 i{color:var(--accent)}
+  .panel h2 .h-sub{font-size:11px;color:var(--faint);letter-spacing:1px;font-weight:600}
+  .hint{color:var(--muted);font-size:12px;line-height:1.7}
+  .btn{border:none;cursor:pointer;border-radius:999px;padding:8px 15px;
+    font-size:13px;font-weight:600;color:#fff;transition:.18s;
+    display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,var(--accent),var(--rail));
+    box-shadow:0 3px 10px rgba(61,139,253,.25)}
+  .btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+  .btn.ok{background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 3px 10px rgba(22,163,74,.28)}
+  .btn.warn{background:linear-gradient(135deg,#f59e0b,#d97706);box-shadow:0 3px 10px rgba(217,119,6,.28)}
+  .btn.danger{background:linear-gradient(135deg,#f87171,#e5484d);box-shadow:0 3px 10px rgba(229,72,77,.28)}
+  .btn.ghost{background:transparent;color:var(--text);box-shadow:inset 0 0 0 1px rgba(122,134,149,.3)}
+  .btn.ghost:hover{background:rgba(122,134,149,.1)}
+  .btn.sm{padding:5px 11px;font-size:12px}
+  .btn.mini{padding:4px 9px;font-size:11px}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;flex:none}
+  .toolbar .hint{margin-right:auto}
+  /* KPI 卡片 */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:14px}
+  .kpi{background:var(--panel);border:1px solid var(--panel-bd);border-radius:var(--radius-sm);padding:14px 15px;transition:.18s}
+  .kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow-soft)}
+  .kpi .k{font-size:11.5px;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:7px;text-transform:uppercase;letter-spacing:.4px}
+  .kpi .k i{color:var(--accent);width:15px;text-align:center}
+  .kpi .v{font-size:13.5px;font-weight:700;word-break:break-all;line-height:1.4}
+  .kpi .v .gold{color:#d97706}
+  /* 表单 */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+  .field input,.field select{padding:9px 12px;border:1px solid rgba(122,134,149,.28);border-radius:var(--radius-sm);font-size:13px;background:rgba(255,255,255,.7);color:var(--text);width:100%;transition:.15s}
+  [data-theme="dark"] .field input,[data-theme="dark"] .field select{background:rgba(255,255,255,.05)}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring,rgba(61,139,253,.2))}
+  .field.full{grid-column:1/-1}
+  .field textarea{width:100%;padding:9px 12px;border:1px solid rgba(122,134,149,.28);border-radius:var(--radius-sm);font-size:12.5px;background:rgba(255,255,255,.7);color:var(--text);min-height:110px;resize:vertical;font-family:"Consolas","Microsoft YaHei",monospace;transition:.15s}
+  [data-theme="dark"] .field textarea{background:rgba(255,255,255,.05)}
+  .field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring,rgba(61,139,253,.2))}
+  .tool-toggles{display:flex;flex-wrap:wrap;gap:9px}
+  .tt{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--panel-bd);border-radius:var(--radius-sm);padding:9px 13px;cursor:pointer;transition:.15s;user-select:none}
+  .tt:hover{border-color:var(--accent)}
+  .tt input{accent-color:var(--accent);transform:scale(1.12);cursor:pointer}
+  .tt .n{font-size:13px;font-weight:600}
+  .tt .d{font-size:11px;color:var(--muted)}
+  /* 分组面板 */
+  .group{background:var(--panel);border:1px solid var(--panel-bd);border-radius:var(--radius-sm);padding:14px;margin-bottom:14px}
+  .group h3{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .group h3 i{color:var(--accent)}
+  .group h3 .count{font-size:11px;color:var(--faint);font-weight:600;background:rgba(61,139,253,.1);padding:2px 8px;border-radius:999px;margin-left:4px}
+  /* 表格 */
+  .tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .tbl th{text-align:left;color:var(--muted);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;border-bottom:1px solid rgba(122,134,149,.2)}
+  .tbl td{padding:9px 10px;border-bottom:1px solid rgba(122,134,149,.12);vertical-align:middle}
+  .tbl tr:hover td{background:rgba(61,139,253,.05)}
+  .tbl .name{font-weight:600}
+  .tbl .mono{font-family:"Consolas",monospace;font-size:12px}
+  .switch{position:relative;width:38px;height:21px;border-radius:999px;background:rgba(122,134,149,.3);cursor:pointer;transition:.2s;flex:none;border:none;display:inline-block}
+  .switch::after{content:"";position:absolute;top:2.5px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .switch.on{background:var(--ok)}
+  .switch.on::after{left:19px}
+  .tag{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}
+  .tag.builtin{background:rgba(79,195,247,.15);color:#0e7490}
+  .tag.user{background:rgba(255,197,61,.18);color:#b45309}
+  [data-theme="dark"] .tag.builtin{color:#7de3a8}
+  [data-theme="dark"] .tag.user{color:#f0c36d}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .row.gap{display:flex;gap:10px}
+  .fill{flex:1}
+  .input{padding:9px 12px;border:1px solid rgba(122,134,149,.28);border-radius:var(--radius-sm);font-size:13px;background:rgba(255,255,255,.7);color:var(--text);width:100%}
+  [data-theme="dark"] .input{background:rgba(255,255,255,.05)}
+  .input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring,rgba(61,139,253,.2))}
+  .empty{color:var(--faint);font-size:13px;padding:24px 0;text-align:center}
+  /* 日志 */
+  .logbox{background:var(--bg1);border:1px solid var(--panel-bd);border-radius:var(--radius-sm);padding:12px 14px;
+    font-family:"Consolas","Courier New",monospace;font-size:12px;line-height:1.65;
+    height:100%;min-height:300px;overflow:auto;color:var(--muted);white-space:pre-wrap;word-break:break-all}
+  [data-theme="dark"] .logbox{background:#101216;color:#9fb0c3}
+  .logbox .t-stamp{color:var(--faint)}
+  /* storage */
+  .storage-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+  .sdir{background:var(--panel);border:1px solid var(--panel-bd);border-radius:var(--radius-sm);padding:13px 15px}
+  .sdir .top{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;margin-bottom:6px}
+  .sdir .top i{color:var(--accent)}
+  .sdir .val{font-size:18px;font-weight:800;color:var(--accent)}
+  .sdir .path{font-size:11px;color:var(--faint);word-break:break-all;margin-top:5px;font-family:"Consolas",monospace}
+  /* 进度条 */
+  .bar{height:6px;border-radius:999px;background:rgba(122,134,149,.18);overflow:hidden;margin-top:8px}
+  .bar>div{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--rail))}
+  /* 分段按钮 + 市场卡片 */
+  .seg{display:inline-flex;gap:4px;background:var(--panel);border:1px solid var(--panel-bd);border-radius:999px;padding:4px;flex-wrap:wrap}
+  .seg-btn{border:none;background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;padding:6px 14px;border-radius:999px;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+  .seg-btn:hover{background:rgba(61,139,253,.08);color:var(--text)}
+  .seg-btn.active{background:linear-gradient(135deg,var(--accent),var(--rail));color:#fff;box-shadow:0 3px 8px rgba(61,139,253,.3)}
+  .market-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+  .mcard{background:var(--panel);border:1px solid var(--panel-bd);border-radius:var(--radius-sm);padding:14px;display:flex;flex-direction:column;gap:8px;transition:.18s}
+  .mcard:hover{transform:translateY(-2px);box-shadow:var(--shadow-soft)}
+  .mcard .m-top{display:flex;align-items:center;gap:8px}
+  .mcard .m-name{font-weight:700;font-size:13.5px;word-break:break-all}
+  .mcard .m-ver{font-size:11px;color:var(--muted);background:rgba(61,139,253,.1);padding:1px 8px;border-radius:999px;flex:none}
+  .mcard .m-star{font-size:11.5px;color:#d97706;margin-left:auto;flex:none}
+  .mcard .m-desc{font-size:12px;color:var(--muted);line-height:1.6;min-height:38px}
+  .mcard .m-foot{display:flex;align-items:center;gap:8px;margin-top:auto}
+  .mcard .m-kind{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}
+  .mcard .m-kind.plugin{background:rgba(79,195,247,.15);color:#0e7490}
+  .mcard .m-kind.skill{background:rgba(255,197,61,.18);color:#b45309}
+  .mcard .m-kind.skin{background:rgba(217,119,6,.15);color:#92400e}
+  [data-theme="dark"] .mcard .m-kind.plugin{color:#7de3a8}
+  [data-theme="dark"] .mcard .m-star{color:#f0c36d}
+  /* modal */
+  .modal-mask{position:fixed;inset:0;background:rgba(15,20,28,.45);backdrop-filter:blur(4px);z-index:80;display:none;align-items:center;justify-content:center}
+  .modal-mask.open{display:flex}
+  .modal{background:var(--card);border:1px solid var(--card-bd);border-radius:var(--radius);padding:20px;width:min(520px,92vw);box-shadow:var(--shadow);backdrop-filter:blur(18px)}
+  .modal h3{font-size:15px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .modal .form-grid{grid-template-columns:1fr}
+  .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+  #toast{position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-10px);z-index:99;
+    background:rgba(22,32,45,.92);color:#eaf2fa;font-size:13px;font-weight:600;
+    padding:10px 20px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);
+    opacity:0;pointer-events:none;transition:.25s;max-width:80vw}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.err{background:rgba(229,72,77,.94)}
+  #toast.ok{background:rgba(22,163,74,.94)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <a class="back" href="/"><i class="fas fa-arrow-left"></i> 返回聊天</a>
+    <div class="title">
+      <span class="logo"><i class="fas fa-bolt"></i></span>
+      DSH 内核管理 <span class="sub">// DEEPSEEK HARNESS</span>
+    </div>
+    <span class="spacer"></span>
+    <span class="status-pill stopped" id="head-pill"><span class="dot"></span> 未连接</span>
+    <button class="btn ghost sm" id="btn-theme" title="切换深色/浅色"><i class="fas fa-moon"></i></button>
+  </header>
+
+  <nav>
+    <button class="active" data-tab="p-status"><i class="fas fa-heartbeat"></i> 状态</button>
+    <button data-tab="p-market"><i class="fas fa-store"></i> 市场</button>
+    <button data-tab="p-plugins"><i class="fas fa-puzzle-piece"></i> 插件</button>
+    <button data-tab="p-skills"><i class="fas fa-wand-magic-sparkles"></i> 技能</button>
+    <button data-tab="p-sessions"><i class="fas fa-folder-tree"></i> 会话</button>
+    <button data-tab="p-storage"><i class="fas fa-boxes-stacked"></i> 存储</button>
+    <button data-tab="p-tokens"><i class="fas fa-coins"></i> 用量</button>
+    <button data-tab="p-logs"><i class="fas fa-terminal"></i> 日志</button>
+    <button data-tab="p-settings"><i class="fas fa-sliders-h"></i> 设置</button>
+  </nav>
+
+  <main>
+    <!-- 状态 -->
+    <div class="panel active" id="p-status">
+      <div class="toolbar">
+        <span class="status-pill stopped" id="st-status"><span class="dot"></span> 未连接</span>
+        <button class="btn ok" id="btn-start"><i class="fas fa-play"></i> 启动</button>
+        <button class="btn warn" id="btn-restart"><i class="fas fa-sync-alt"></i> 重启</button>
+        <button class="btn danger" id="btn-stop"><i class="fas fa-stop"></i> 停止</button>
+        <button class="btn ghost" id="btn-refresh"><i class="fas fa-rotate-right"></i> 刷新</button>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="group">
+        <h3><i class="fas fa-info-circle"></i> 版本与环境</h3>
+        <div class="kpis" id="ver-kpis" style="margin-bottom:0"></div>
+      </div>
+      <div class="group">
+        <h3><i class="fas fa-cloud-arrow-down"></i> 内核自主更新 <span class="count">@deepseek-ai 官方 npm 发行包</span></h3>
+        <div class="kpis" id="up-kpis"></div>
+        <div class="row">
+          <select class="input" id="up-channel" style="max-width:190px">
+            <option value="latest">latest 稳定版</option>
+            <option value="next">next 预览版</option>
+            <option value="custom">指定版本</option>
+          </select>
+          <select class="input fill" id="up-version" style="display:none"></select>
+          <button class="btn sm" id="btn-up-check"><i class="fas fa-magnifying-glass"></i> 检查更新</button>
+          <button class="btn sm ok" id="btn-up-run" disabled><i class="fas fa-download"></i> 一键更新</button>
+        </div>
+        <div class="hint" id="up-msg">检查更新会联网查询 npm registry；更新过程为：停内核 → 备份 → 改写依赖 → npm install → 校验 → 重启，任一步失败自动回滚。</div>
+        <pre class="logbox" id="up-log" style="max-height:200px;margin-top:10px">— 尚未执行更新 —</pre>
+      </div>
+      <div class="hint" id="status-err"></div>
+    </div>
+
+    <!-- 插件 -->
+    <div class="panel" id="p-plugins">
+      <h2><i class="fas fa-puzzle-piece"></i> 插件管理 <span class="h-sub">// PLUGINS</span></h2>
+      <div class="group">
+        <h3><i class="fas fa-box-open"></i> 从 npm 仓库安装 DSH 插件 <span class="count">独立插件系统，与软件内置插件完全隔离</span></h3>
+        <div class="row">
+          <input class="input fill" id="plug-spec" placeholder="npm 包名@版本，如 @deepseek-ai/dsh-tool-memory · 或 link:H:/dsh-plugins/xxx">
+          <button class="btn" id="btn-plug-install"><i class="fas fa-download"></i> 安装</button>
+        </div>
+        <div class="hint" style="margin-top:8px">安装需本机具备 Node.js（npm 随附）。安装包写入 <b>内置内核 dsh-suite/npm-core/node_modules</b>，安装后需重启 DSH 生效。</div>
+      </div>
+
+      <div class="group">
+        <h3><i class="fas fa-plug"></i> 用户插件 <span class="count" id="user-count">0</span></h3>
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn sm" id="btn-plug-add"><i class="fas fa-plus"></i> 新增插件</button>
+          <span class="hint">勾选启用 → 重启 DSH 后其 cordis 配置行会追加到组合配置</span>
+        </div>
+        <table class="tbl">
+          <thead><tr><th style="width:46px">启用</th><th>插件 ID</th><th>npm 包 / 名称</th><th>备注</th><th style="width:120px">操作</th></tr></thead>
+          <tbody id="user-plug-body"></tbody>
+        </table>
+        <div id="user-plug-empty" class="empty">暂无用户插件。使用上方"安装"或"新增插件"添加。</div>
+      </div>
+
+      <div class="group">
+        <h3><i class="fas fa-cubes"></i> 内置组合行 <span class="count" id="builtin-count">0</span></h3>
+        <div class="hint" style="margin-bottom:10px">本体 DSH bundle 预设的 cordis 插件组合（只读）。工具能力由"设置"页的开关控制。</div>
+        <div id="builtin-rows"></div>
+      </div>
+    </div>
+
+    <!-- 市场 -->
+    <div class="panel" id="p-market">
+      <h2><i class="fas fa-store"></i> 插件 / 技能市场 <span class="h-sub">// MARKETPLACE</span></h2>
+      <div class="group">
+        <h3><i class="fas fa-satellite-dish"></i> 搜索</h3>
+        <div class="seg" id="market-type">
+          <button class="seg-btn active" data-type="plugin"><i class="fas fa-puzzle-piece"></i> 插件 (npm)</button>
+          <button class="seg-btn" data-type="skill"><i class="fas fa-wand-magic-sparkles"></i> 技能 (GitHub)</button>
+          <button class="seg-btn" data-type="skin"><i class="fas fa-palette"></i> 皮肤 (npm)</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <input class="input fill" id="market-q" placeholder="输入关键词，如 memory / tool / skill"><button class="btn" id="btn-market-search"><i class="fas fa-magnifying-glass"></i> 搜索</button>
+        </div>
+      </div>
+      <div id="market-results" class="market-grid"></div>
+      <div id="market-empty" class="empty">输入关键词搜索 npm(GitHub 技能)上可用的 DSH 增强包，一键安装后重启 DSH 生效。</div>
+      <div class="hint" id="market-msg"></div>
+    </div>
+
+    <!-- 技能 -->
+    <div class="panel" id="p-skills">
+      <h2><i class="fas fa-wand-magic-sparkles"></i> Skill 管理 <span class="h-sub">// SKILLS</span></h2>
+      <div class="toolbar">
+        <button class="btn sm" id="btn-refresh-skills"><i class="fas fa-rotate-right"></i> 刷新</button>
+        <span class="hint" id="skill-count"></span>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>名称</th><th>来源</th><th>描述</th></tr></thead>
+        <tbody id="skill-body"></tbody>
+      </table>
+      <div id="skill-empty" class="empty">未发现 DSH Skills</div>
+    </div>
+
+    <!-- 会话 -->
+    <div class="panel" id="p-sessions">
+      <h2><i class="fas fa-folder-tree"></i> 对话管理 <span class="h-sub">// SESSIONS</span></h2>
+      <div class="toolbar">
+        <span class="hint" id="sess-count"></span>
+        <span class="hint" id="sess-active" style="margin-left:10px"></span>
+        <button class="btn sm" id="btn-new-sess" style="margin-left:auto"><i class="fas fa-plus"></i> 新建续聊会话</button>
+        <button class="btn danger sm" id="btn-clear-sess"><i class="fas fa-trash"></i> 清空全部</button>
+      </div>
+      <table class="tbl">
+        <thead><tr><th style="width:52%">会话文件</th><th>大小</th><th>最后修改</th><th style="width:130px"></th></tr></thead>
+        <tbody id="sess-body"></tbody>
+      </table>
+      <div id="sess-empty" class="empty">暂无会话</div>
+      <div class="hint" id="sess-root" style="margin-top:10px"></div>
+    </div>
+
+    <!-- 存储 -->
+    <div class="panel" id="p-storage">
+      <h2><i class="fas fa-boxes-stacked"></i> 存储空间 <span class="h-sub">// STORAGE</span></h2>
+      <div class="toolbar">
+        <button class="btn sm" id="btn-refresh-storage"><i class="fas fa-rotate-right"></i> 刷新</button>
+        <span class="hint" id="storage-total"></span>
+      </div>
+      <div class="storage-grid" id="storage-grid"></div>
+      <div id="storage-empty" class="empty">加载中…</div>
+    </div>
+
+    <!-- 用量 -->
+    <div class="panel" id="p-tokens">
+      <h2><i class="fas fa-coins"></i> Token 用量统计 <span class="h-sub">// USAGE</span></h2>
+      <div class="toolbar">
+        <div class="seg" id="tok-range">
+          <button class="seg-btn active" data-range="all"><i class="fas fa-infinity"></i> 全部</button>
+          <button class="seg-btn" data-range="30"><i class="fas fa-calendar-days"></i> 30 天</button>
+          <button class="seg-btn" data-range="7"><i class="fas fa-calendar-week"></i> 7 天</button>
+        </div>
+        <button class="btn sm" id="btn-refresh-tokens" style="margin-left:auto"><i class="fas fa-rotate-right"></i> 刷新</button>
+      </div>
+      <div class="kpis" id="tok-kpis"></div>
+      <div class="group">
+        <h3><i class="fas fa-microchip"></i> 模型用量</h3>
+        <table class="tbl"><thead><tr><th>模型</th><th>Tokens</th><th>调用</th><th>缓存</th><th>输出</th><th>成本 $</th></tr></thead>
+          <tbody id="tok-models"></tbody></table>
+      </div>
+      <div class="group">
+        <h3><i class="fas fa-list-ul"></i> 每日明细</h3>
+        <table class="tbl"><thead><tr><th>日期</th><th>调用</th><th>输入</th><th>缓存</th><th>输出</th><th>成本 $</th></tr></thead>
+          <tbody id="tok-daily"></tbody></table>
+      </div>
+      <div class="empty" id="tok-empty">尚未读取到 DSH 用量账本（需启用 cost-meter 插件并产生对话）。</div>
+    </div>
+
+    <!-- 日志 -->
+    <div class="panel" id="p-logs">
+      <div class="toolbar">
+        <h2 style="margin-bottom:0"><i class="fas fa-terminal"></i> 内部日志 <span class="h-sub">// RUNTIME STDERR</span></h2>
+        <span class="spacer"></span>
+        <button class="btn sm" id="btn-refresh-logs"><i class="fas fa-rotate-right"></i> 刷新</button>
+        <button class="btn ghost sm" id="btn-clear-logs"><i class="fas fa-broom"></i> 清屏</button>
+      </div>
+      <pre class="logbox" id="logbox">— 加载日志…</pre>
+    </div>
+
+    <!-- 设置 -->
+    <div class="panel" id="p-settings">
+      <h2><i class="fas fa-sliders-h"></i> 运行时设置 <span class="h-sub">// RUNTIME CONFIG</span></h2>
+      <div class="form-grid">
+        <div class="field full"><label>DSH API Key（可选，留空复用主 API Key）</label>
+          <input type="password" id="f-api-key" placeholder="DeepSeek 密钥"></div>
+        <div class="field"><label>DSH API 地址（Messages 兼容端点，留空用官方）</label><input type="text" id="f-api-url" placeholder="https://api.deepseek.com/anthropic"></div>
+        <div class="field"><label>模型</label><input type="text" id="f-model" placeholder="如 deepseek-flash（= V4.1-Flash）"></div>
+        <div class="field"><label>Reasoning Effort</label>
+          <select id="f-effort"><option value="high">high</option><option value="max">max</option></select></div>
+        <div class="field"><label>每次回答最大 Tokens（0 = 不限制）</label><input type="number" id="f-maxtokens" min="0" step="1024" placeholder="0 = 不限制，用内核默认上限"></div>
+        <div class="field"><label>Bash 超时（毫秒）</label><input type="number" id="f-bashtimeout" min="1000" step="1000"></div>
+        <div class="field"><label>权限模式</label>
+          <select id="f-permmode">
+            <option value="danger-full-access">完全访问（无人应答审批，默认）</option>
+            <option value="workspace-write">仅工作区写入（越权操作被拒绝）</option>
+          </select></div>
+        <div class="field full"><label>工作目录 cwd（bash / 文件工具根目录）</label><input type="text" id="f-cwd" placeholder="留空使用软件内置目录"></div>
+        <div class="field full"><label>会话持久化目录（JSONL 存储位置）</label><input type="text" id="f-sessroot" placeholder="留空使用内置 sessions 目录"></div>
+        <div class="field full"><label>DSH 内核目录（npm 发行包根目录，可选）</label><input type="text" id="f-kerneldir" placeholder="留空使用软件内置 dsh-suite/npm-core"></div>
+        <div class="field full"><label>系统提示词 / 人格（persona）</label><textarea id="f-prompt" placeholder="例如：你是芙宁娜…"></textarea></div>
+        <div class="field full"><label>DeepSeek 思维链（reasoning）</label>
+          <label class="tt" style="border:none;background:transparent;padding:0"><input type="checkbox" id="f-thinking"><span class="n">启用思维链（thinking）</span></label></div>
+        <div class="field full"><label>启用工具能力</label><div class="tool-toggles" id="f-tools"></div></div>
+        <div class="field full"><label>MCP 桥接</label>
+          <label class="tt" style="border:none;background:transparent;padding:0"><input type="checkbox" id="f-mcpbridge"><span class="n">把主引擎已配置的 MCP 服务同步注入 DSH 内核（stdio / streamable-http）</span></label></div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+        <button class="btn" id="btn-save"><i class="fas fa-save"></i> 保存配置</button>
+        <span class="hint">提示：保存后需点击"状态"页的"重启 DSH"使组合配置生效</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 插件编辑弹窗 -->
+<div class="modal-mask" id="plug-mask">
+  <div class="modal">
+    <h3><i class="fas fa-puzzle-piece"></i> 编辑用户插件</h3>
+    <div class="form-grid">
+      <div class="field"><label>插件 ID</label><input type="text" id="m-id" disabled></div>
+      <div class="field"><label>npm 包 / 名称</label><input type="text" id="m-name"></div>
+      <div class="field"><label>备注</label><input type="text" id="m-note" placeholder="可选，说明插件用途"></div>
+      <div class="field"><label>启用</label><div style="padding-top:8px"><button class="switch on" id="m-enabled"></button></div></div>
+      <div class="field full"><label>插件配置 config（JSON）</label><textarea id="m-config" style="min-height:140px" placeholder='{ "key": "value" }'></textarea></div>
+    </div>
+    <div class="actions"><button class="btn ghost" id="m-cancel">取消</button><button class="btn" id="m-save">保存</button></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>
+var $=s=>document.querySelector(s);
+var toastTimer=null;
+function toast(msg,type){
+  var t=$('#toast');t.textContent=msg;t.className='show'+(type?' '+type:'');t.style.opacity=1;
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.style.opacity=0;},2600);
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function api(method,path,body){
+  var opt={method:method};
+  if(body!==undefined){opt.headers={'Content-Type':'application/json'};opt.body=JSON.stringify(body);}
+  var res=await fetch('/api/dsh'+path,opt);
+  try{var data=await res.json();}catch(e){data={};}
+  if(!res.ok)throw new Error((data&&data.detail)||('HTTP '+res.status));
+  return data;
+}
+function setPill(sel,running,label){
+  var el=$(sel);el.className='status-pill '+(running?'running':'stopped');
+  el.innerHTML='<span class="dot"></span> '+(label||(running?'运行中':'未运行'));
+}
+var TOOLS=[{"id":"bash","i":"fas fa-terminal","d":"shell 命令执行"},{"id":"fs","i":"fas fa-folder-open","d":"文件 读/写/编辑"},{"id":"subagent","i":"fas fa-code-branch","d":"子智能体"},{"id":"todo","i":"fas fa-list-check","d":"任务清单"}];
+var _theme=localStorage.getItem('dsh-theme')||'light';
+function applyTheme(){document.documentElement.setAttribute('data-theme',_theme);$('#btn-theme').innerHTML='<i class="fas fa-'+( _theme==='dark'?'sun':'moon')+'"></i>';}
+$('#btn-theme').onclick=()=>{_theme=_theme==='dark'?'light':'dark';localStorage.setItem('dsh-theme',_theme);applyTheme();};
+
+/* ═══════ 状态 ═══════ */
+function renderTools(list){var tips={bash:'Bash',fs:'文件系统',subagent:'子智能体',todo:'Todo'};return (list||[]).map(t=>tips[t]||t).join('、')||'—';}
+function renderStatus(s){
+  var running=!!s.running;
+  setPill('#st-status',running);setPill('#head-pill',running,running?'DSH 运行中':'DSH 未连接');
+  var engine=$('#btn-start');if(engine)engine.disabled=running;
+  var kpis=[
+    {i:'fas fa-microchip',k:'模型',v:s.model||'—'},
+    {i:'fas fa-bolt',k:'进程 PID',v:s.pid||'—'},
+    {i:'fas fa-brain',k:'思维链',v:s.thinking?'开启':'关闭'},
+    {i:'fas fa-gauge-high',k:'Reasoning Effort',v:s.reasoning_effort||'max'},
+    {i:'fas fa-toolbox',k:'启用工具',v:renderTools(s.enabled_tools)},
+    {i:'fas fa-folder-open',k:'会话目录',v:s.session_root||'—'},
+    {i:'fas fa-folder',k:'工作目录 cwd',v:s.cwd||'—'},
+    {i:'fas fa-plug',k:'用户插件',v:(s.user_plugins||0)+' 个'},
+  ];
+  $('#kpis').innerHTML=kpis.map(k=>'<div class="kpi"><div class="k"><i class="'+k.i+'"></i>'+k.k+'</div><div class="v">'+esc(k.v)+'</div></div>').join('');
+  $('#status-err').textContent=s.last_error||'';
+}
+async function loadVersion(){
+  try{var v=await api('GET','/version');
+    var cards=[
+      {i:'fas fa-cube',k:'DSH Core 版本',v:v.dshCoreVersion||'—'},
+      {i:'fas fa-layer-group',k:'启动 Profile',v:v.profile||'—'},
+      {i:'fas fa-folder',k:'内核目录',v:(v.coreDir||'—')},
+      {i:'fas fa-boxes',k:'Node',v:v.node||'—'},
+      {i:'fas fa-toolbox',k:'npm 环境',v:v.npm?'已就绪':'未安装'},
+      {i:'fas fa-file-lines',k:'插件清单文件',v:(v.pluginsFile||'—').split(/[\\/]/).slice(-2).join('/')},
+    ];
+    $('#ver-kpis').innerHTML=cards.map(k=>'<div class="kpi"><div class="k"><i class="'+k.i+'"></i>'+k.k+'</div><div class="v">'+esc(k.v)+'</div></div>').join('');
+    upRenderKpis({current:v.dshCoreVersion,registry:v.registry,channel:'latest'});
+  }catch(e){}
+}
+
+/* ═══════ 内核自主更新 ═══════ */
+var UP_STATE='idle',UP_TIMER=null;
+function upRenderKpis(d){
+  d=d||{};
+  var cards=[
+    {i:'fas fa-cube',k:'当前内核版本',v:d.current||'—'},
+    {i:'fas fa-cloud',k:'渠道目标版本',v:d.target||'—'},
+    {i:'fas fa-signal',k:'更新渠道',v:d.channel||'—'},
+    {i:'fas fa-server',k:'npm 源',v:d.registry||'—'},
+  ];
+  $('#up-kpis').innerHTML=cards.map(k=>'<div class="kpi"><div class="k"><i class="'+k.i+'"></i>'+k.k+'</div><div class="v">'+esc(k.v)+'</div></div>').join('');
+}
+function upSetLog(lines){
+  var box=$('#up-log');
+  box.textContent=(lines&&lines.length)?lines.join('\n'):'— 尚未执行更新 —';
+  box.scrollTop=box.scrollHeight;
+}
+async function upCheck(){
+  var b=$('#btn-up-check');setButtonLoading(b);
+  var ch=$('#up-channel').value;
+  try{
+    var d=await api('GET','/kernel/update/check?channel='+encodeURIComponent(ch==='custom'?'latest':ch));
+    upRenderKpis(d);
+    var sel=$('#up-version');
+    sel.innerHTML=(d.versions||[]).map(v=>'<option value="'+esc(v)+'">'+esc(v)+'</option>').join('');
+    if(d.error){$('#up-msg').textContent=d.error;toast(d.error,'err');}
+    else if(d.available){$('#up-msg').textContent='发现新版本 '+(d.target||d.latest||'')+'（当前 '+(d.current||'未知')+'），可一键更新。';}
+    else{$('#up-msg').textContent='当前内核 '+(d.current||'未知')+' 已是最新。';}
+    $('#btn-up-run').disabled=false;
+  }catch(e){toast(e.message,'err');}
+  doneButton(b);
+}
+async function upRun(){
+  if(UP_STATE==='running')return;
+  var ch=$('#up-channel').value;
+  var ver=ch==='custom'?($('#up-version').value||''):'';
+  var b=$('#btn-up-run');setButtonLoading(b);
+  try{
+    var r=await api('POST','/kernel/update',{channel:ch,version:ver,restart:true});
+    if(r&&r.ok===false){toast(r.error||'无法启动更新','err');}
+    else{UP_STATE='running';$('#btn-up-run').disabled=true;upSetLog(['正在启动更新任务…']);upPoll();toast('已开始更新内核','ok');}
+  }catch(e){toast(e.message,'err');}
+  doneButton(b);
+}
+function upPoll(){
+  clearTimeout(UP_TIMER);
+  UP_TIMER=setTimeout(async function(){
+    try{
+      var s=await api('GET','/kernel/update/status');
+      UP_STATE=s.state||'idle';
+      upSetLog(s.log);
+      if(UP_STATE==='running'){
+        $('#btn-up-run').disabled=true;
+        $('#up-msg').textContent='更新中 · '+(s.step||'')+(s.message?' · '+s.message:'');
+        upPoll();
+      }else{
+        $('#btn-up-run').disabled=false;
+        if(UP_STATE==='done'){
+          $('#up-msg').textContent=s.message||'内核更新完成';
+          toast(s.message||'内核更新完成','ok');
+          refreshStatus();loadVersion();
+        }else if(UP_STATE==='failed'){
+          $('#up-msg').textContent='更新失败：'+(s.error||'未知错误')+'（已自动回滚）';
+          toast('内核更新失败，已回滚','err');
+          refreshStatus();loadVersion();
+        }
+      }
+    }catch(e){upPoll();}
+  },1500);
+}
+
+async function refreshStatus(){
+  try{var s=await api('GET','/status');renderStatus(s);}catch(e){toast(e.message,'err');}
+}
+
+/* ═══════ 插件 ═══════ */
+async function loadPlugins(){
+  try{
+    var d=await api('GET','/plugins');
+    var user=d.user||[],builtins=d.builtins||[];
+    $('#user-count').textContent=user.length+'';
+    $('#builtin-count').textContent=builtins.length+'';
+    // 用户插件表
+    var b=$('#user-plug-body');b.innerHTML='';
+    $('#user-plug-empty').style.display=user.length?'none':'block';
+    user.forEach(function(p){
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td><button class="switch '+(p.enabled?'on':'')+'" data-id="'+esc(p.id)+'"></button></td>'+
+        '<td class="mono name">'+esc(p.id)+'</td>'+
+        '<td class="mono">'+esc(p.name)+'</td>'+
+        '<td class="hint">'+esc(p.note||'')+'</td>'+
+        '<td><div class="row"><button class="btn ghost mini" data-edit="'+esc(p.id)+'"><i class="fas fa-pen"></i></button>'+
+        '<button class="btn danger mini" data-del="'+esc(p.id)+'"><i class="fas fa-trash"></i></button></div></td>';
+      b.appendChild(tr);
+    });
+    // 绑定事件
+    b.querySelectorAll('.switch').forEach(function(s){s.onclick=()=>togglePlugin(s.dataset.id,s.classList.contains('on'));});
+    b.querySelectorAll('[data-edit]').forEach(function(btn){btn.onclick=()=>openEdit(btn.dataset.edit,'update');});
+    b.querySelectorAll('[data-del]').forEach(function(btn){btn.onclick=()=>delPlugin(btn.dataset.del);});
+    // 内置行
+    $('#builtin-rows').innerHTML='<div class="tag-row" style="display:flex;flex-wrap:wrap;gap:8px">'+
+      builtins.map(function(x){
+        return '<span class="tag builtin" title="'+esc('模块：'+x.name+'\n'+(x.hint||''))+'"><i class="fas fa-cube" style="margin-right:4px;font-size:10px"></i>'+esc(x.id)+(x.hint?' · '+esc(x.hint):'')+'</span>';
+      }).join('')+'</div>';
+  }catch(e){toast(e.message,'err');}
+}
+function setButtonLoading(btn){var old=btn.innerHTML;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';btn.disabled=true;btn.dataset.old=old;setTimeout(()=>{if(!btn.dataset.done){btn.innerHTML=old;btn.disabled=false;}},8000);}
+function doneButton(btn){if(btn&&btn.dataset.done)btn.dataset.done='1';btn.innerHTML=btn.dataset.old||btn.innerHTML;btn.disabled=false;}
+async function installPlugin(){
+  var spec=$('#plug-spec').value.trim();
+  if(!spec)return toast('请输入 npm 包名','err');
+  if(!confirm('确认从 npm 安装并启用 DSH 插件：\n'+spec+'\n\n将执行 npm install，可能耗时较长。'))return;
+  try{var r=await api('POST','/plugins/install',{spec:spec,enabled:true});
+    if(r.installed){toast(r.message,'ok');$('#plug-spec').value='';loadPlugins();}
+    else toast(r.message||'安装失败','err');
+  }catch(e){toast(e.message,'err');}
+}
+async function addEmptyPlugin(){
+  var id=prompt('插件 ID（唯一，英文/数字/连字符）：');
+  if(!id)return;
+  if(!/^[A-Za-z0-9][A-Za-z0-9-_]*$/.test(id))return toast('ID 只能包含字母数字和 - _','err');
+  var name=prompt('npm 包名 / 名称（如 @scope/pkg 或 link:路径）：',id);
+  if(!name)return;
+  try{var r=await api('POST','/plugins',{id:id,name:name,enabled:true});toast(r.message,'ok');loadPlugins();}catch(e){toast(e.message,'err');}
+}
+async function togglePlugin(id,currentlyOn){
+  try{await api('PATCH','/plugins/'+encodeURIComponent(id),{enabled:!currentlyOn});}catch(e){toast(e.message,'err');}
+  loadPlugins();
+}
+async function delPlugin(id){
+  if(!confirm('确定删除用户插件 "'+id+'" 吗？'))return;
+  try{var r=await api('DELETE','/plugins/'+encodeURIComponent(id),{uninstall:true});toast(r.message,'ok');loadPlugins();}catch(e){toast(e.message,'err');}
+}
+var editingId=null;
+function openEdit(id,mode){
+  editingId=id;mode=mode||'update';
+  $.getElementById('plug-mask').classList.add('open');
+  // 从已加载数据回填
+  fetch('/api/dsh/plugins').then(r=>r.json()).then(d=>{
+    var p=(d.user||[]).find(x=>x.id===id);
+    if(!p)return;
+    $('#m-id').value=id;$('#m-name').value=(p.name||'');$('#m-note').value=(p.note||'');
+    try{$('#m-config').value=JSON.stringify(p.config||{},null,2);}catch(e){$('#m-config').value='';}
+    $('#m-enabled').className='switch'+(p.enabled?' on':'');
+  }).catch(e=>toast(e.message,'err'));
+}
+function closeModal(){$('#plug-mask').classList.remove('open');}
+async function savePlugin(){
+  if(!editingId)return;
+  var configText=$('#m-config').value.trim();
+  var config={};
+  try{config=configText?JSON.parse(configText):{};}catch(e){return toast('config 不是合法 JSON：'+e.message,'err');}
+  var body={config:config};
+  if(typeof $('#m-note').value==='string')body.note=$('#m-note').value;
+  body.enabled=$('#m-enabled').classList.contains('on');
+  try{var r=await api('PATCH','/plugins/'+encodeURIComponent(editingId),body);toast(r.message||'已更新','ok');closeModal();loadPlugins();}catch(e){toast(e.message,'err');}
+}
+$('#m-enabled').onclick=()=>$('#m-enabled').classList.toggle('on');
+$('#m-save').onclick=savePlugin;$('#m-cancel').onclick=closeModal;
+$('#plug-mask').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+
+/* ═══════ 技能 ═══════ */
+async function loadSkills(){
+  try{var d=await api('GET','/skills');var list=d.skills||[];
+    $('#skill-count').textContent='共 '+d.count+' 个 Skill';
+    var b=$('#skill-body');b.innerHTML='';
+    $('#skill-empty').style.display=list.length?'none':'block';
+    list.forEach(function(s){
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td class="name"><i class="fas fa-wand-magic-sparkles" style="color:var(--accent);margin-right:6px"></i>'+esc(s.name)+'</td>'+
+        '<td><span class="tag '+(s.source.indexOf('用户')>=0?'user':'builtin')+'">'+esc(s.source)+'</span></td>'+
+        '<td class="hint">'+esc(s.description||'')+'</td>';
+      b.appendChild(tr);
+    });
+  }catch(e){toast(e.message,'err');}
+}
+
+/* ═══════ 会话 ═══════ */
+function dshResumeId(){try{return localStorage.getItem('dshSessionId')||'';}catch(e){return '';}}
+function refreshSessActive(){
+  var id=dshResumeId();
+  var el=$('#sess-active');
+  if(el) el.textContent=id?('当前续聊：'+id):'当前：新会话（首次发送时创建）';
+}
+async function loadSessions(){
+  try{
+    var r=await api('GET','/sessions');
+    var list=r.sessions||[];
+    $('#sess-count').textContent='共 '+r.count+' 个会话';
+    $('#sess-root').textContent='存储目录：'+(r.root||'');
+    $('#sess-empty').style.display=list.length?'none':'block';
+    refreshSessActive();
+    var cur=dshResumeId();
+    var b=$('#sess-body');b.innerHTML='';
+    list.forEach(function(it){
+      var tr=document.createElement('tr');
+      var isCur=cur&&cur===it.name;
+      tr.innerHTML='<td style="word-break:break-all;font-family:Consolas,monospace;font-size:12.5px">'+esc(it.name)+
+        (isCur?' <span class="hint" style="color:var(--ok,#3fb950)">当前</span>':'')+'</td>'+
+        '<td>'+esc(it.size_desc)+'</td><td>'+esc(it.mtime_desc)+'</td>'+
+        '<td style="white-space:nowrap"><button class="btn sm" data-act="resume"><i class="fas fa-play"></i></button> '+
+        '<button class="btn danger sm" data-act="del"><i class="fas fa-trash"></i></button></td>';
+      tr.querySelector('[data-act="resume"]').onclick=function(){resumeSession(it.name);};
+      tr.querySelector('[data-act="del"]').onclick=function(){if(confirm('删除会话 '+it.name+' ？'))delSession(it.name);};
+      b.appendChild(tr);
+    });
+  }catch(e){toast(e.message,'err');}
+}
+function resumeSession(name){
+  try{localStorage.setItem('dshSessionId',name);}catch(e){}
+  refreshSessActive();
+  toast('已设为续聊会话：'+name+'，回到聊天页用 DSH 模式发送即可继续','ok');
+}
+function newDshSession(){
+  try{localStorage.removeItem('dshSessionId');}catch(e){}
+  refreshSessActive();
+  toast('已切换到新会话，下次发送会创建新的 DSH 会话','ok');
+}
+async function delSession(name){try{await api('DELETE','/sessions/'+encodeURIComponent(name));toast('已删除 '+name,'ok');loadSessions();}catch(e){toast(e.message,'err');}}
+async function clearSessions(){if(!confirm('确定清空全部 DSH 会话记录吗？'))return;try{var r=await api('DELETE','/sessions');toast('已清空 '+r.deleted+' 个会话','ok');loadSessions();}catch(e){toast(e.message,'err');}}
+
+/* ═══════ 存储 ═══════ */
+async function loadStorage(){
+  try{
+    var d=await api('GET','/storage');var f=(d.folders||[]);
+    $('#storage-empty').style.display=f.length?'none':'block';
+    var total=f.reduce((a,x)=>a+(x.sizeMB||0),0);
+    $('#storage-total').textContent='合计 '+total.toFixed(1)+' MB';
+    var grid=$('#storage-grid');grid.innerHTML='';
+    var max=Math.max.apply(null,f.map(x=>x.sizeMB||0))||1;
+    f.forEach(function(x){
+      var pct=Math.min(100,Math.round(((x.sizeMB||0)/max)*100));
+      var el=document.createElement('div');
+      el.className='sdir';
+      el.innerHTML='<div class="top"><i class="fas '+(x.key==='core'?'fa-cube':x.key==='plugins'?'fa-plug':x.key==='sessions'?'fa-folder-tree':'fa-folder')+'"></i>'+esc(x.label)+'</div>'+
+        '<div class="val">'+(x.sizeMB||0).toFixed(1)+' <span style="font-size:12px;color:var(--muted)">MB</span></div>'+
+        '<div class="bar"><div style="width:'+pct+'%"></div></div>'+
+        '<div class="row" style="margin-top:8px"><div class="path" style="margin-top:0;flex:1">'+esc(x.path||'')+'</div>'+
+        '<button class="btn ghost mini" data-openfol="'+esc(x.key)+'"><i class="fas fa-folder-open"></i></button></div>';
+      grid.appendChild(el);
+    });
+    grid.querySelectorAll('[data-openfol]').forEach(function(b){b.onclick=()=>openFolder(b.dataset.openfol,b);});
+  }catch(e){toast(e.message,'err');}
+}
+
+/* ═══════ 日志 ═══════ */
+async function loadLogs(){
+  try{var d=await api('GET','/logs');var lines=d.lines||[];
+    if($('#btn-clear-logs').dataset.cleared!=='1')
+      $('#logbox').textContent=lines.length?lines.join('\n'):'— 暂无运行日志 —';
+    $('#logbox').scrollTop=$('#logbox').scrollHeight;
+  }catch(e){toast(e.message,'err');}
+}
+
+/* ═══════ 设置 ═══════ */
+function renderToolToggles(enabled){
+  var map=(enabled||[]).slice();
+  $('#f-tools').innerHTML=TOOLS.map(t=>'<label class="tt"><input type="checkbox" value="'+t.id+'" '+(map.indexOf(t.id)>=0?'checked':'')+'><span><span class="n" style="display:flex;align-items:center;gap:6px"><i class="'+t.i+'" style="color:var(--accent)"></i>'+t.id+'</span><span class="d" style="display:block">'+t.d+'</span></span></label>').join('');
+}
+function loadSettingsUI(s){
+  var d=s.dsh||{};
+  $('#f-api-key').value=d.api_key||'';$('#f-api-url').value=d.api_url||'';$('#f-model').value=d.model||'';
+  // DeepSeek 思考强度只认 high / max，旧配置里的 low/medium 归一到 high
+  var _eff=String(d.reasoning_effort||'max').toLowerCase();
+  $('#f-effort').value=(_eff==='max'||_eff==='xhigh')?'max':'high';
+  $('#f-maxtokens').value=(d.max_tokens===undefined?0:d.max_tokens);$('#f-bashtimeout').value=d.bash_timeout||60000;
+  $('#f-cwd').value=d.cwd||'';$('#f-sessroot').value=d.session_root||'';$('#f-kerneldir').value=d.kernel_dir||'';
+  $('#f-permmode').value=(d.permission_mode==='workspace-write')?'workspace-write':'danger-full-access';
+  $('#f-prompt').value=d.system_prompt||'';
+  $('#f-thinking').checked=d.thinking!==false;
+  $('#f-mcpbridge').checked=d.mcp_bridge!==false;
+  renderToolToggles(d.tools||['bash','fs','subagent','todo']);
+}
+function collectSettingsUI(){
+  var tools=[].slice.call($('#f-tools').querySelectorAll('input:checked')).map(i=>i.value);
+  var o={api_key:$('#f-api-key').value.trim(),api_url:$('#f-api-url').value.trim(),
+    model:$('#f-model').value.trim(),reasoning_effort:$('#f-effort').value,
+    max_tokens:(parseInt($('#f-maxtokens').value)||0),bash_timeout:parseInt($('#f-bashtimeout').value)||60000,
+    cwd:$('#f-cwd').value.trim(),session_root:$('#f-sessroot').value.trim(),kernel_dir:$('#f-kerneldir').value.trim(),
+    permission_mode:$('#f-permmode').value,
+    system_prompt:$('#f-prompt').value,thinking:$('#f-thinking').checked,tools:tools,
+    mcp_bridge:$('#f-mcpbridge').checked};
+  ['api_key','api_url','model','cwd','session_root','kernel_dir','system_prompt'].forEach(k=>{if(!o[k])delete o[k];});
+  if(!o.tools.length)delete o.tools;
+  return o;
+}
+async function loadSettings(){return await (await fetch('/api/settings')).json();}
+async function saveSettings(){
+  try{
+    var d=collectSettingsUI();
+    var r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dsh:d})});
+    var data=await r.json();
+    if(data&&data.status==='success')toast('配置已保存（重启 DSH 生效）','ok');
+    else toast((data&&data.detail)||'保存失败','err');
+  }catch(e){toast(e.message,'err');}
+}
+
+/* ═══════ 市场 ═══════ */
+var marketType='plugin';
+function setMarketType(t){
+  marketType=t;
+  document.querySelectorAll('#market-type .seg-btn').forEach(b=>b.classList.toggle('active',b.dataset.type===t));
+}
+async function searchMarket(){
+  var q=$('#market-q').value.trim();
+  $('#market-empty').style.display='none';
+  $('#market-results').innerHTML='<div class="empty">搜索中…</div>';
+  try{
+    var d=await api('GET','/market/search?type='+encodeURIComponent(marketType)+'&q='+encodeURIComponent(q));
+    var items=d.items||[];
+    $('#market-msg').textContent=d.message||'';
+    if(!items.length){$('#market-empty').style.display='block';$('#market-empty').textContent='无结果，换个关键词试试。';$('#market-results').innerHTML='';}
+    else{
+      $('#market-results').innerHTML=items.map(it=>
+        '<div class="mcard">'
+        +'<div class="m-top"><span class="m-name">'+esc(it.name)+'</span><span class="m-ver">v'+esc(it.version||'')+'</span>'+(it.stars?'<span class="m-star"><i class="fas fa-star"></i> '+it.stars+'</span>':'')+'</div>'
+        +'<div class="m-desc">'+esc(it.description||'—')+'</div>'
+        +'<div class="m-foot"><span class="m-kind '+esc(it.kind)+'">'+({plugin:'插件',skill:'技能',skin:'皮肤'}[it.kind]||it.kind)+'</span>'
+        +'<button class="btn sm" data-name="'+esc(it.name)+'" data-kind="'+esc(it.kind)+'" data-mk="" style="margin-left:auto"><i class="fas fa-download"></i> 安装</button></div>'
+        +'</div>').join('');
+      $('#market-results').querySelectorAll('button[data-name]').forEach(function(b){
+        b.onclick=()=>installMarket(b.dataset.kind,b.dataset.name,b);
+      });
+    }
+  }catch(e){$('#market-empty').style.display='block';$('#market-empty').textContent='搜索失败：'+e.message;}
+}
+async function installMarket(kind,name,btn){
+  if(!confirm('确认安装「'+name+'」('+(kind==='skill'?'GitHub Skill':'npm 包')+')？\\n将执行下载/安装，可能耗时较长。'))return;
+  var old=btn.innerHTML;btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';
+  try{
+    var r=await api('POST','/market/install',{kind:kind,name:name});
+    if(r.installed||r.ok)toast(r.message||'已安装','ok');
+    else toast(r.message||'安装失败','err');
+  }catch(e){toast(e.message,'err');}
+  btn.disabled=false;btn.innerHTML=old;
+}
+/* ═══════ 用量 ═══════ */
+var tokRange='all';
+var fmtTok=n=>n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':String(n||0);
+async function loadTokens(){
+  try{
+    var d=await api('GET','/tokens?range='+tokRange);
+    var o=d.overview||{};
+    var has=d.models&&d.models.length;
+    $('#tok-empty').style.display=has?'none':'block';
+    $('#tok-kpis').innerHTML=[
+      {i:'fas fa-message',k:'消息数',v:Number(o.messages||0).toLocaleString()},
+      {i:'fas fa-coins',k:'Tokens',v:fmtTok(o.totalTokens)},
+      {i:'fas fa-dollar-sign',k:'成本 $',v:o.totalCost||0},
+      {i:'fas fa-calendar-check',k:'活跃天数',v:o.activeDays||0},
+      {i:'fas fa-microchip',k:'常用模型',v:o.favoriteModel||'—'},
+      {i:'fas fa-fire',k:'最忙日',v:o.busiestDay||'—'},
+    ].map(k=>'<div class="kpi"><div class="k"><i class="'+k.i+'"></i>'+k.k+'</div><div class="v">'+esc(k.v)+'</div></div>').join('');
+    $('#tok-models').innerHTML=(d.models||[]).map(m=>
+      '<tr><td class="name">'+esc(m.model)+'</td><td>'+fmtTok(m.tokens)+'</td><td>'+m.calls+'</td><td>'+fmtTok(m.hit)+'</td><td>'+fmtTok(m.output)+'</td><td>'+m.cost+'</td></tr>').join('')
+      ||'<tr><td colspan="6" class="empty">—</td></tr>';
+    $('#tok-daily').innerHTML=(d.daily||[]).map(r=>
+      '<tr><td>'+esc(r.date)+'</td><td>'+(r.calls||0)+'</td><td>'+fmtTok(r.input)+'</td><td>'+fmtTok((r.cacheRead||0)+(r.cacheWrite||0))+'</td><td>'+fmtTok(r.output)+'</td><td>'+r.cost+'</td></tr>').join('')
+      ||'<tr><td colspan="6" class="empty">—</td></tr>';
+  }catch(e){toast(e.message,'err');}
+}
+function setTokRange(r){
+  tokRange=r;
+  document.querySelectorAll('#tok-range .seg-btn').forEach(b=>b.classList.toggle('active',b.dataset.range===r));
+  loadTokens();
+}
+async function openFolder(key,btn){
+  if(btn){var old=btn.innerHTML;btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>';}
+  try{var r=await api('POST','/open',{key:key});toast(r.message||'已打开','ok');}
+  catch(e){toast(e.message,'err');}
+  if(btn){btn.disabled=false;btn.innerHTML=old;}
+}
+
+/* ═══════ 按钮动作 ═══════ */
+async function doStart(){var b=$('#btn-start');setButtonLoading(b);try{var r=await api('POST','/start');refreshStatus();loadVersion();toast(r.running?'已启动 DSH':'启动未就绪','ok');}catch(e){toast(e.message,'err');}doneButton(b);}
+async function doStop(){var b=$('#btn-stop');setButtonLoading(b);try{await api('POST','/stop');refreshStatus();toast('已停止 DSH','ok');}catch(e){toast(e.message,'err');}doneButton(b);}
+async function doRestart(){var b=$('#btn-restart');setButtonLoading(b);try{var r=await api('POST','/restart');refreshStatus();loadVersion();toast(r.running?'已重启 DSH':'重启失败','ok');}catch(e){toast(e.message,'err');}doneButton(b);}
+
+/* ═══════ 初始化 ═══════ */
+document.querySelectorAll('nav button').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');$('#'+btn.dataset.tab).classList.add('active');
+  };
+});
+$('#btn-start').onclick=doStart;$('#btn-stop').onclick=doStop;$('#btn-restart').onclick=doRestart;
+$('#btn-refresh').onclick=refreshStatus;$('#btn-save').onclick=saveSettings;
+$('#btn-up-check').onclick=upCheck;$('#btn-up-run').onclick=upRun;
+$('#up-channel').onchange=function(){$('#up-version').style.display=(this.value==='custom')?'':'none';};
+$('#btn-clear-sess').onclick=clearSessions;
+$('#btn-new-sess').onclick=newDshSession;
+$('#btn-plug-install').onclick=installPlugin;$('#btn-plug-add').onclick=addEmptyPlugin;
+$('#btn-refresh-skills').onclick=loadSkills;
+$('#btn-refresh-storage').onclick=loadStorage;
+$('#btn-refresh-logs').onclick=loadLogs;
+$('#btn-clear-logs').onclick=()=>{$('#logbox').textContent='';if($('#btn-clear-logs'))$('#btn-clear-logs').dataset.cleared='1';};
+document.querySelectorAll('#market-type .seg-btn').forEach(b=>b.onclick=()=>setMarketType(b.dataset.type));
+$('#btn-market-search').onclick=searchMarket;
+$('#market-q').addEventListener('keydown',e=>{if(e.key==='Enter')searchMarket();});
+document.querySelectorAll('#tok-range .seg-btn').forEach(b=>b.onclick=()=>setTokRange(b.dataset.range));
+$('#btn-refresh-tokens').onclick=loadTokens;
+applyTheme();
+(async function(){
+  await refreshStatus();await loadVersion();
+  // 内核更新任务可能在刷新页面后仍在后台跑，恢复日志与轮询
+  try{var us=await api('GET','/kernel/update/status');
+    if(us&&us.log&&us.log.length)upSetLog(us.log);
+    if(us&&us.state==='running'){UP_STATE='running';$('#btn-up-run').disabled=true;upPoll();}
+  }catch(e){}
+  try{var s=await loadSettings();loadSettingsUI(s);}catch(e){toast('读取设置失败: '+e.message,'err');}
+  await loadSessions();
+  loadPlugins();
+  loadSkills();
+  loadStorage();
+  loadLogs();
+  setInterval(refreshStatus,10000);
+  setInterval(loadLogs,15000);
+})();
+</script>
+</body>
+</html>

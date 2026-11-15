@@ -1,0 +1,1 @@
+"""AstrBot db.vec_db 兼容包（加载级）。"""

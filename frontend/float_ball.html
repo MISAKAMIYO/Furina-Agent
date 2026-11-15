@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Furina 悬浮球</title>
+<style>
+  :root {
+    --accent: #3d8bfd;
+    --accent-2: #6aa8ff;
+    --accent-deep: #2f6fe0;
+    --ink: #1f2733;
+    --sub: #5b6b80;
+    --faint: #9aa9bc;
+    --hair: rgba(120, 140, 170, .22);
+    --glass: rgba(255, 255, 255, .74);
+    --glass-strong: rgba(255, 255, 255, .92);
+    --radius: 16px;
+    --shadow: 0 10px 30px rgba(24, 40, 72, .20);
+    --ring-track: rgba(255, 255, 255, .34);
+  }
+  * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  html, body {
+    margin: 0; width: 100%; height: 100%; background: transparent; overflow: hidden;
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    color: var(--ink);
+  }
+
+  /* ==================== 收起态：悬浮球 ==================== */
+  #ball {
+    position: absolute; inset: 0; margin: auto;
+    width: min(76px, 90vw); height: min(76px, 90vw);
+    cursor: grab; z-index: 5; transition: transform .14s ease, opacity .2s ease;
+    filter: drop-shadow(0 8px 18px rgba(47, 111, 224, .38));
+  }
+  #ball:hover { transform: scale(1.06); }
+  #ball.dragging { cursor: grabbing; transform: scale(1.1); }
+  #ball .ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+  #ball .ring-bg { fill: none; stroke: var(--ring-track); stroke-width: 4; }
+  #ball .ring-fg {
+    fill: none; stroke: #fff; stroke-width: 4; stroke-linecap: round;
+    stroke-dasharray: 213.6; stroke-dashoffset: 213.6;
+    transition: stroke-dashoffset .35s ease;
+  }
+  #ball .core {
+    position: absolute; inset: 8%; border-radius: 50%;
+    background: linear-gradient(145deg, var(--accent-2), var(--accent-deep));
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; box-shadow: inset 0 1px 3px rgba(255, 255, 255, .35);
+  }
+  #ball .ico { font-size: clamp(10px, 18vw, 15px); line-height: 1; opacity: .85; margin-bottom: 1px; }
+  #ball .page { font-size: clamp(12px, 22vw, 17px); font-weight: 800; line-height: 1; letter-spacing: .5px; }
+  #ball .page small { font-size: clamp(7px, 11vw, 9px); font-weight: 500; opacity: .76; }
+  body.expanded #ball { display: none; }
+
+  /* ==================== 展开态：目录面板 ==================== */
+  #panel {
+    position: absolute; inset: 0; display: none; flex-direction: column; z-index: 6;
+    background: var(--glass); backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, .6);
+    border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+    animation: panelIn .18s cubic-bezier(.2, .8, .3, 1);
+  }
+  @keyframes panelIn { from { opacity: 0; transform: scale(.94) translateY(6px); } to { opacity: 1; transform: none; } }
+  #panel.show { display: flex; }
+
+  .head {
+    display: flex; align-items: center; gap: 7px; padding: 10px 11px 9px;
+    border-bottom: 1px solid var(--hair);
+    background: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0));
+  }
+  .head .dot { width: 8px; height: 8px; border-radius: 50%; flex: none;
+    background: linear-gradient(145deg, var(--accent-2), var(--accent-deep)); box-shadow: 0 0 0 3px rgba(61, 139, 253, .16); }
+  .head b { flex: 1; font-size: 13.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pagechip {
+    font-size: 11px; font-weight: 700; color: var(--accent-deep); background: rgba(61, 139, 253, .14);
+    border-radius: 999px; padding: 2px 9px; white-space: nowrap;
+  }
+  .icobtn {
+    flex: none; width: 24px; height: 24px; border-radius: 8px; border: 1px solid transparent;
+    background: rgba(255, 255, 255, .55); color: var(--sub); font-size: 13px; line-height: 1;
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    transition: all .15s ease;
+  }
+  .icobtn:hover { background: #fff; color: var(--accent-deep); border-color: var(--hair); }
+
+  .body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+  .row { display: flex; gap: 6px; padding: 8px 11px 0; flex-wrap: wrap; align-items: center; }
+  .row.tight { padding-top: 7px; }
+
+  select {
+    flex: 1; min-width: 110px; padding: 6px 8px; font-size: 12.5px; color: var(--ink);
+    border: 1px solid var(--hair); border-radius: 10px; background: var(--glass-strong); outline: none;
+  }
+  select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(61, 139, 253, .16); }
+
+  .btn {
+    border: 1px solid var(--hair); background: var(--glass-strong); color: var(--ink);
+    border-radius: 10px; padding: 6px 10px; font-size: 12.5px; cursor: pointer; white-space: nowrap;
+    transition: all .15s ease;
+  }
+  .btn:hover { background: #fff; border-color: rgba(61, 139, 253, .5); color: var(--accent-deep); }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary {
+    background: linear-gradient(145deg, var(--accent-2), var(--accent-deep));
+    border-color: transparent; color: #fff; font-weight: 600;
+    box-shadow: 0 4px 12px rgba(47, 111, 224, .28);
+  }
+  .btn.primary:hover { color: #fff; filter: brightness(1.05); }
+  .btn.ghost { background: transparent; }
+
+  /* 进度条 */
+  .progress { padding: 9px 11px 0; }
+  .progress .bar { height: 6px; border-radius: 999px; background: rgba(120, 140, 170, .18); overflow: hidden; }
+  .progress .fill {
+    height: 100%; width: 0; border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent-deep));
+    transition: width .35s ease;
+  }
+  .progress .meta { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+  .progress .meta span { font-size: 11.5px; color: var(--sub); }
+  .progress input {
+    width: 54px; padding: 3px 6px; font-size: 11.5px; text-align: center; color: var(--ink);
+    border: 1px solid var(--hair); border-radius: 8px; background: var(--glass-strong); outline: none;
+  }
+  .progress input:focus { border-color: var(--accent); }
+
+  /* 翻页动作条 */
+  .actions { display: flex; gap: 5px; padding: 9px 11px 9px; }
+  .actions .btn { flex: 1; padding: 7px 4px; text-align: center; }
+
+  /* 页码列表 */
+  #list { flex: 1; overflow-y: auto; padding: 0 8px 8px; min-height: 0; }
+  #list::-webkit-scrollbar { width: 8px; }
+  #list::-webkit-scrollbar-thumb { background: rgba(120, 140, 170, .3); border-radius: 999px; }
+  #list::-webkit-scrollbar-thumb:hover { background: rgba(120, 140, 170, .5); }
+  .item {
+    padding: 8px 9px; border-radius: 10px; cursor: pointer; font-size: 13px; color: var(--sub);
+    display: flex; gap: 8px; align-items: baseline; line-height: 1.45;
+    transition: background .13s ease, color .13s ease;
+  }
+  .item + .item { margin-top: 1px; }
+  .item:hover { background: rgba(61, 139, 253, .1); color: var(--ink); }
+  .item .no {
+    width: 22px; flex: none; text-align: center; font-size: 11.5px; font-weight: 700;
+    color: var(--faint);
+  }
+  .item .tt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item.cur { background: linear-gradient(145deg, rgba(106, 168, 255, .22), rgba(61, 139, 253, .16)); color: var(--ink); font-weight: 600; }
+  .item.cur .no { color: var(--accent-deep); }
+  .item.cur .no::after { content: '▸'; display: block; font-size: 9px; line-height: .7; }
+
+  .hint { padding: 0 11px 8px; font-size: 11px; color: var(--faint); line-height: 1.5; }
+  .foot {
+    display: flex; align-items: center; gap: 8px; padding: 7px 11px 9px;
+    border-top: 1px solid var(--hair); background: rgba(255, 255, 255, .35);
+  }
+  .foot #status { flex: 1; font-size: 11.5px; color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .foot .op { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--faint); }
+  .foot input[type="range"] { width: 62px; accent-color: var(--accent); cursor: pointer; }
+
+  .empty { padding: 22px 14px; text-align: center; font-size: 12.5px; color: var(--faint); line-height: 1.7; }
+  .skel { height: 34px; border-radius: 10px; margin: 4px 0; background: linear-gradient(90deg, rgba(120,140,170,.10), rgba(120,140,170,.20), rgba(120,140,170,.10)); background-size: 200% 100%; animation: sk 1.2s infinite; }
+  @keyframes sk { to { background-position: -200% 0; } }
+
+  /* ==================== 右键菜单 ==================== */
+  #menu {
+    position: absolute; z-index: 20; display: none; flex-direction: column;
+    background: var(--glass-strong); backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, .7); border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(20, 30, 50, .24); overflow: hidden; min-width: 138px;
+    animation: panelIn .14s ease;
+  }
+  #menu.show { display: flex; }
+  #menu .mi { padding: 9px 14px; font-size: 13px; color: var(--ink); cursor: pointer; white-space: nowrap; }
+  #menu .mi:hover { background: rgba(61, 139, 253, .12); }
+  #menu .mi.danger { color: #c0392b; }
+  #menu .mi.danger:hover { background: rgba(192, 57, 43, .1); }
+</style>
+</head>
+<body>
+<div id="ball" title="AI 授课快捷目录（拖动移动 · 单击展开 · 右键菜单）">
+  <svg class="ring" viewBox="0 0 76 76">
+    <circle class="ring-bg" cx="38" cy="38" r="34"></circle>
+    <circle class="ring-fg" id="ring-fg" cx="38" cy="38" r="34"></circle>
+  </svg>
+  <div class="core">
+    <div class="ico">☰</div>
+    <div class="page" id="ball-page">–</div>
+  </div>
+</div>
+
+<div id="menu">
+  <div class="mi" onclick="menuDetect()">识别当前页</div>
+  <div class="mi" onclick="refreshCatalog()">刷新目录</div>
+  <div class="mi" onclick="menuTop()">回到首页</div>
+  <div class="mi" onclick="hideSelf()">隐藏悬浮球</div>
+  <div class="mi danger" onclick="closeSelf()">关闭悬浮球</div>
+</div>
+
+<div id="panel">
+  <div class="head">
+    <div class="dot"></div>
+    <b id="panel-title">快捷目录</b>
+    <span class="pagechip" id="panel-page">–</span>
+    <button class="icobtn" onclick="refreshCatalog()" title="刷新目录">⟳</button>
+    <button class="icobtn" onclick="hideSelf()" title="隐藏悬浮球（再点主界面「打开悬浮球」恢复）">◠</button>
+    <button class="icobtn" onclick="collapse()" title="收起">✕</button>
+  </div>
+
+  <div class="body">
+    <div class="row">
+      <select id="catalog-sel" onchange="loadCatalog(this.value)"></select>
+      <button class="btn ghost" onclick="menuDetect()" title="截屏 OCR 匹配当前课件页码">识别</button>
+    </div>
+
+    <div class="progress">
+      <div class="bar"><div class="fill" id="prog-fill"></div></div>
+      <div class="meta">
+        <span id="prog-text">第 – / – 页</span>
+        <span>跳到 <input type="number" id="jump-input" min="1" placeholder="页码"
+              onkeydown="if(event.key==='Enter')jumpFromInput()"> 页</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" onclick="jumpTo(1)" title="首页">⏮</button>
+      <button class="btn" onclick="jumpDelta(-1)" title="上一页（←）">上一页</button>
+      <button class="btn primary" onclick="menuDetect()" title="识别当前页">识别当前页</button>
+      <button class="btn" onclick="jumpDelta(1)" title="下一页（→）">下一页</button>
+      <button class="btn" onclick="jumpLast()" title="末页">⏭</button>
+    </div>
+
+    <div id="list"></div>
+    <div class="hint">识别＝截屏 OCR 匹配目录定位页码；跳转＝向 WPS / 希沃发送翻页键。快捷键：← → 翻页，Esc 收起。</div>
+  </div>
+
+  <div class="foot">
+    <span id="status">准备就绪</span>
+    <span class="op" title="球体不透明度">◐ <input type="range" id="opacity" min="30" max="100" step="5" value="100"></span>
+  </div>
+</div>
+
+<script src="/static/js/desktop-bridge.js"></script>
+<script>
+var state = { catalogId: '', catalog: null, current: 0, total: 0, expanded: false, autoDetect: false };
+
+var RING_LEN = 213.6;
+
+function api(path, options) {
+  return fetch('/api/edu/teach' + path, options).then(function (r) { return r.json(); });
+}
+
+function isDesktop() {
+  return !!(window.DesktopBridge && window.DesktopBridge.isDesktop && window.DesktopBridge.isDesktop());
+}
+
+function $(id) { return document.getElementById(id); }
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+
+function setStatus(t) { var el = $('status'); if (el) el.textContent = t || ''; }
+
+// ================= 进度环 / 进度条 =================
+function renderProgress() {
+  var cur = state.current || 0;
+  var total = state.total || 0;
+  var frac = total > 0 ? Math.max(0, Math.min(1, cur / total)) : 0;
+  var fg = $('ring-fg');
+  if (fg) fg.style.strokeDashoffset = String(RING_LEN * (1 - frac));
+  var fill = $('prog-fill');
+  if (fill) fill.style.width = (frac * 100) + '%';
+  var bp = $('ball-page');
+  if (bp) {
+    bp.innerHTML = cur ? (cur + (total ? '<small>/' + total + '</small>' : '')) : '–';
+  }
+  var pt = $('prog-text');
+  if (pt) pt.textContent = total ? ('第 ' + (cur || 1) + ' / ' + total + ' 页') : '第 – / – 页';
+  var pc = $('panel-page');
+  if (pc) pc.textContent = total ? (cur || 1) + ' / ' + total : '–';
+  var ji = $('jump-input');
+  if (ji && total) { ji.max = String(total); } else if (ji) { ji.removeAttribute('max'); }
+}
+
+// ================= 拖动（节流 + 正确取初始位置 + 边缘吸附） =================
+var drag = null;
+var pendingMove = false;
+var lastTarget = { x: 0, y: 0 };
+
+$('ball').addEventListener('mousedown', function (e) {
+  e.preventDefault();
+  if (e.button !== 0 || !isDesktop()) return;
+  closeMenu();
+  window.DesktopBridge.ballGetPos().then(function (res) {
+    drag = {
+      sx: e.screenX, sy: e.screenY, moved: false,
+      wx: (res && res.success ? res.x : 0) || 0,
+      wy: (res && res.success ? res.y : 0) || 0
+    };
+    $('ball').classList.add('dragging');
+  }).catch(function () { drag = null; });
+});
+
+document.addEventListener('mousemove', function (e) {
+  if (!drag) return;
+  var dx = e.screenX - drag.sx;
+  var dy = e.screenY - drag.sy;
+  if (!drag.moved && Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+  if (!drag.moved || !isDesktop()) return;
+  drag.vx = drag.wx + dx;
+  drag.vy = drag.wy + dy;
+  lastTarget.x = drag.vx;
+  lastTarget.y = drag.vy;
+  if (pendingMove) return;
+  pendingMove = true;
+  requestAnimationFrame(function () {
+    pendingMove = false;
+    window.DesktopBridge.ballMove(Math.round(lastTarget.x), Math.round(lastTarget.y));
+  });
+});
+
+document.addEventListener('mouseup', function () {
+  if (!drag) return;
+  var wasClick = !drag.moved;
+  var vx = drag.vx, vy = drag.vy;
+  drag = null;
+  $('ball').classList.remove('dragging');
+  if (wasClick) { expand(); return; }
+  // 收起态拖动后吸附到最近的左右边缘
+  if (isDesktop() && typeof vx === 'number') snapToEdge(vx, vy);
+});
+
+function snapToEdge(vx, vy) {
+  var screenW = (window.screen && (window.screen.availWidth || window.screen.width)) || 1920;
+  var screenH = (window.screen && (window.screen.availHeight || window.screen.height)) || 1080;
+  var size = COLLAPSED_SIZE.w;
+  var margin = 6;
+  var targetX = (vx + size / 2 < screenW / 2) ? margin : (screenW - size - margin);
+  var targetY = Math.max(0, Math.min(vy, screenH - COLLAPSED_SIZE.h));
+  window.DesktopBridge.ballMove(Math.round(targetX), Math.round(targetY));
+  state.edge = targetX <= margin ? 'left' : 'right';
+}
+
+// ================= 展开 / 收起 =================
+var EXPANDED_SIZE = { w: 348, h: 500 };
+// 收起尺寸沿用创建时的窗口尺寸（设置里可自定义 ball_size）
+var COLLAPSED_SIZE = {
+  w: Math.max(60, Math.round(window.innerWidth) || 84),
+  h: Math.max(60, Math.round(window.innerHeight) || 84)
+};
+
+function expand() {
+  state.expanded = true;
+  document.body.classList.add('expanded');
+  $('panel').classList.add('show');
+  resizeWindow(EXPANDED_SIZE.w, EXPANDED_SIZE.h);
+  loadCatalogs();
+}
+
+function collapse() {
+  state.expanded = false;
+  document.body.classList.remove('expanded');
+  $('panel').classList.remove('show');
+  resizeWindow(COLLAPSED_SIZE.w, COLLAPSED_SIZE.h);
+}
+
+function resizeWindow(w, h) {
+  if (!isDesktop()) return;
+  window.DesktopBridge.ballSetSize(w, h).then(function (res) {
+    if (res && res.success === false) console.warn('[ball] resize 失败:', res.message);
+  }).catch(function (e) { console.warn('[ball] resize 异常:', e); });
+}
+
+// ================= 隐藏 / 关闭 =================
+function hideSelf() {
+  closeMenu();
+  if (state.expanded) collapse();
+  if (isDesktop()) window.DesktopBridge.hideFloatBall();
+  else window.close();
+}
+
+function closeSelf() {
+  closeMenu();
+  if (isDesktop()) window.DesktopBridge.closeFloatBall();
+  else window.close();
+}
+
+function menuDetect() {
+  closeMenu();
+  if (!state.expanded) expand();
+  if (state.catalogId) setTimeout(detectPage, 550);
+  else state.autoDetect = true;
+}
+
+function menuTop() {
+  closeMenu();
+  if (!state.catalogId) return;
+  if (!state.expanded) expand();
+  jumpTo(1);
+}
+
+// ================= 右键菜单 =================
+var menuEl = $('menu');
+
+function closeMenu() { menuEl.classList.remove('show'); }
+
+$('ball').addEventListener('contextmenu', function (e) {
+  e.preventDefault();
+  if (document.body.classList.contains('expanded')) return;
+  menuEl.style.left = Math.max(2, Math.min(e.clientX, window.innerWidth - 150)) + 'px';
+  menuEl.style.top = Math.max(2, Math.min(e.clientY, window.innerHeight - 170)) + 'px';
+  menuEl.classList.add('show');
+});
+
+document.addEventListener('mousedown', function (e) {
+  if (menuEl.classList.contains('show') && !menuEl.contains(e.target)) closeMenu();
+});
+
+// ================= 目录加载 =================
+function refreshCatalog() {
+  closeMenu();
+  loadCatalogs();
+  setStatus('已刷新目录列表');
+}
+
+function loadCatalogs() {
+  var listEl = $('list');
+  listEl.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
+  api('/catalog/list').then(function (res) {
+    var list = (res && res.data) || [];
+    var sel = $('catalog-sel');
+    if (!list.length) {
+      sel.innerHTML = '<option value="">暂无目录</option>';
+      listEl.innerHTML = '<div class="empty">还没有课件目录<br>请先在「AI 授课 → 快捷目录」中生成。</div>';
+      state.total = 0; renderProgress();
+      return;
+    }
+    var cur = state.catalogId || getQuery('catalog_id') || String(list[0].id);
+    sel.innerHTML = list.map(function (c) {
+      return '<option value="' + c.id + '">' + escapeHtml(c.title) + '（' + c.page_count + ' 页）</option>';
+    }).join('');
+    sel.value = cur;
+    loadCatalog(cur);
+  }).catch(function () {
+    listEl.innerHTML = '<div class="empty">目录加载失败<br>后端可能尚未就绪。</div>';
+  });
+}
+
+function loadCatalog(id) {
+  if (!id) return;
+  state.catalogId = String(id);
+  api('/catalog/' + id).then(function (res) {
+    var c = (res && res.data) || {};
+    state.catalog = c;
+    state.total = c.page_count || (c.outline || []).length || 0;
+    $('panel-title').textContent = c.title || '快捷目录';
+    var outline = c.outline || [];
+    $('list').innerHTML = outline.length
+      ? outline.map(function (p) {
+          return '<div class="item" data-page="' + p.page + '" onclick="jumpTo(' + p.page + ')">' +
+            '<span class="no">' + p.page + '</span><span class="tt">' + escapeHtml(p.title || '') + '</span></div>';
+        }).join('')
+      : '<div class="empty">该目录没有页面记录。</div>';
+    if (!state.current) state.current = 1;
+    markCurrent();
+    setStatus('目录已就绪');
+    if (state.autoDetect) { state.autoDetect = false; detectPage(); }
+  }).catch(function () {
+    $('list').innerHTML = '<div class="empty">目录详情加载失败。</div>';
+  });
+}
+
+function markCurrent() {
+  var items = document.querySelectorAll('#list .item');
+  for (var i = 0; i < items.length; i++) {
+    items[i].classList.toggle('cur', String(state.current) === items[i].dataset.page);
+  }
+  renderProgress();
+  var cur = document.querySelector('#list .item.cur');
+  if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+// ================= 识别 / 跳转 =================
+function detectPage() {
+  if (!state.catalogId) { setStatus('请先选择目录'); return; }
+  setStatus('识别中… 正在截屏 OCR');
+  api('/catalog/match-screen', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ catalog_id: parseInt(state.catalogId, 10) })
+  }).then(function (res) {
+    if (!res || !res.success) { setStatus((res && res.message) || '识别失败'); return; }
+    if (res.page) { state.current = res.page; markCurrent(); }
+    setStatus('第 ' + res.page + ' 页 · 匹配度 ' + res.score + (res.matched ? '' : '（偏低，请核对）'));
+  }).catch(function (e) { setStatus('识别失败：' + e); });
+}
+
+function jumpDelta(d) {
+  var cur = state.current || 1;
+  var target = cur + d;
+  if (target < 1) target = 1;
+  if (state.total && target > state.total) target = state.total;
+  jumpTo(target);
+}
+
+function jumpLast() {
+  if (!state.total) { setStatus('页码未知，无法跳到末页'); return; }
+  jumpTo(state.total);
+}
+
+function jumpFromInput() {
+  var v = parseInt($('jump-input').value, 10);
+  if (!v || v < 1) { setStatus('请输入有效页码'); return; }
+  jumpTo(v);
+}
+
+function jumpTo(page) {
+  if (!state.catalogId) { setStatus('请先选择目录'); return; }
+  page = parseInt(page, 10);
+  if (state.total && page > state.total) page = state.total;
+  if (page < 1) page = 1;
+  var cur = state.current || page;
+  api('/catalog/jump', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ catalog_id: parseInt(state.catalogId, 10), current_page: cur, target_page: page })
+  }).then(function (res) {
+    if (res && res.success) {
+      state.current = page;
+      markCurrent();
+      setStatus((res.message || '已跳转') + ' → 第 ' + page + ' 页');
+    } else {
+      setStatus((res && res.message) || '跳转失败（需桌面版）');
+    }
+  }).catch(function (e) { setStatus('跳转失败：' + e); });
+}
+
+function getQuery(name) {
+  try { return new URLSearchParams(location.search).get(name); } catch (e) { return null; }
+}
+
+// ================= 键盘快捷键 =================
+document.addEventListener('keydown', function (e) {
+  var tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (!state.expanded) { if (e.key === 'Enter') expand(); return; }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); jumpDelta(-1); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); jumpDelta(1); }
+  else if (e.key === 'Escape') { closeMenu(); collapse(); }
+  else if (e.key === 'Home') { e.preventDefault(); jumpTo(1); }
+  else if (e.key === 'End') { e.preventDefault(); jumpLast(); }
+});
+
+// ================= 不透明度 =================
+var opEl = $('opacity');
+try { var saved = localStorage.getItem('zhiyan_ball_opacity'); if (saved) opEl.value = saved; } catch (e) {}
+applyOpacity(opEl.value);
+opEl.addEventListener('input', function () { applyOpacity(opEl.value); });
+function applyOpacity(v) {
+  var ball = $('ball');
+  if (ball) ball.style.opacity = String(Math.max(0.3, Math.min(1, (parseInt(v, 10) || 100) / 100)));
+  try { localStorage.setItem('zhiyan_ball_opacity', String(v)); } catch (e) {}
+}
+
+// 跟随由本软件打开的 HTML 幻灯片翻页广播
+window.addEventListener('message', function (e) {
+  var d = e.data || {};
+  if (d.type === 'edu-slide-changed' && d.index) {
+    state.current = d.index;
+    if (d.total) state.total = d.total;
+    if (state.catalog) markCurrent();
+  }
+});
+
+// 桌面桥接就绪后同步一次窗口尺寸状态
+window.addEventListener('pywebviewready', function () {
+  if (state.expanded) resizeWindow(EXPANDED_SIZE.w, EXPANDED_SIZE.h);
+  else resizeWindow(COLLAPSED_SIZE.w, COLLAPSED_SIZE.h);
+});
+
+// 首次进入：带 catalog_id 的预览链接直接展开，否则预取目录
+if (getQuery('catalog_id')) {
+  setTimeout(expand, 200);
+} else {
+  setTimeout(loadCatalogs, 300);
+}
+</script>
+</body>
+</html>

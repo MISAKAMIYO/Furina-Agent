@@ -1,0 +1,10 @@
+name: help
+author: ZhiYan
+desc: 显示所有可用命令列表，支持 /help 和 /commands 命令
+short_desc: 命令帮助
+version: 1.0.0
+repo: ""
+support_platforms:
+  - webchat
+  - qq
+astrbot_version: ">=4.16,<5"

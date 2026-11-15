@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+<meta charset="UTF-8">
+<title>Furina 桌面歌词</title>
+<style>
+    :root {
+        --accent: #6fb3ff;
+        --accent-2: #a9d2ff;
+        --ink: #ffffff;
+        --ink-dim: rgba(255, 255, 255, .45);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+        user-select: none;
+    }
+    #overlay {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 2px;
+        padding: 10px 26px;
+        background: linear-gradient(180deg, rgba(8, 16, 30, .62), rgba(8, 16, 30, .34));
+        border-radius: 18px;
+        backdrop-filter: blur(10px);
+        cursor: move;
+    }
+    #line-current {
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1.35;
+        text-align: center;
+        color: var(--ink);
+        text-shadow: 0 2px 18px rgba(0, 0, 0, .55);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #line-next {
+        font-size: 15px;
+        text-align: center;
+        color: var(--ink-dim);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-height: 20px;
+    }
+    .w { transition: color .16s linear, text-shadow .2s linear; color: var(--ink-dim); }
+    .w.on {
+        color: var(--accent-2);
+        text-shadow: 0 0 16px rgba(111, 179, 255, .85);
+    }
+    #meta {
+        position: absolute;
+        left: 26px;
+        top: 8px;
+        font-size: 11px;
+        color: rgba(255, 255, 255, .35);
+    }
+    #status {
+        position: absolute;
+        right: 22px;
+        top: 8px;
+        font-size: 11px;
+        color: rgba(255, 255, 255, .3);
+    }
+</style>
+</head>
+<body>
+<div id="overlay" class="pywebview-drag-region">
+    <div id="meta"></div>
+    <div id="status">等待播放</div>
+    <div id="line-current">Furina 桌面歌词</div>
+    <div id="line-next">播放歌曲后这里会显示歌词</div>
+</div>
+<script>
+(function () {
+    var lastLine = '';
+    var lastWords = '';
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    function renderWords(line, time) {
+        var words = (line && line.words) || [];
+        if (!words.length) return esc((line && line.text) || '♪');
+        return words.map(function (w) {
+            var on = time >= (Number(w.t) || 0) - 0.05 ? ' on' : '';
+            return '<span class="w' + on + '">' + esc(w.text || '') + '</span>';
+        }).join('');
+    }
+
+    function poll() {
+        fetch('/api/music/now-playing', { cache: 'no-store' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d || !d.success) return;
+                var cur = document.getElementById('line-current');
+                var nxt = document.getElementById('line-next');
+                var meta = document.getElementById('meta');
+                var status = document.getElementById('status');
+                var line = d.line || {};
+                var key = (line.text || '') + '|' + JSON.stringify(line.words || []);
+                if (key !== lastWords) {
+                    lastWords = key;
+                    cur.innerHTML = renderWords(line, Number(d.time) || 0);
+                    nxt.textContent = d.next || '';
+                } else if ((line.words || []).length) {
+                    // 只更新点亮状态，避免整行重建
+                    var spans = cur.querySelectorAll('.w');
+                    var words = line.words || [];
+                    for (var i = 0; i < spans.length && i < words.length; i++) {
+                        spans[i].classList.toggle('on', (Number(d.time) || 0) >= (Number(words[i].t) || 0) - 0.05);
+                    }
+                }
+                meta.textContent = [d.title, d.artist].filter(Boolean).join(' · ');
+                status.textContent = d.playing ? '正在播放' : '已暂停';
+                lastLine = line.text || '';
+            })
+            .catch(function () { /* 后端未就绪时静默重试 */ });
+    }
+
+    setInterval(poll, 350);
+    poll();
+})();
+</script>
+</body>
+</html>

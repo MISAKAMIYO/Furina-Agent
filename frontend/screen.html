@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>截屏录屏</title>
+<style>
+  :root{
+    --bg1:#eef1f8; --bg2:#d9e2f0;
+    --card:rgba(255,255,255,0.72); --card-bd:rgba(255,255,255,0.6);
+    --text:#22303f; --muted:#7a8695;
+    --accent:#2F7FD6; --accent-2:#3FA9F5;
+    --ok:#16a34a; --warn:#d97706; --danger:#dc2626;
+    --radius:16px;
+    --shadow:0 8px 30px rgba(31,50,90,.12);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    min-height:100vh; color:var(--text);
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));
+    overflow:hidden;
+  }
+  .app{height:100vh;display:flex;flex-direction:column;max-width:1180px;margin:0 auto;padding:16px}
+  header{
+    display:flex;align-items:center;gap:12px;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    background:var(--card);border:1px solid var(--card-bd);
+    border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow);
+  }
+  header .title{font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px}
+  header .title i{color:var(--accent)}
+  .spacer{flex:1}
+  .back{
+    text-decoration:none;color:var(--text);font-size:14px;
+    display:inline-flex;align-items:center;gap:6px;padding:8px 14px;
+    border-radius:10px;background:rgba(59,130,246,.1);transition:.2s;
+  }
+  .back:hover{background:rgba(59,130,246,.2)}
+  .status-pill{
+    font-size:13px;font-weight:600;padding:6px 14px;border-radius:999px;
+    display:inline-flex;align-items:center;gap:7px;
+  }
+  .status-pill .dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+  .status-pill.running{background:rgba(22,163,74,.14);color:var(--ok)}
+  .status-pill.running .dot{background:var(--ok);box-shadow:0 0 0 0 rgba(22,163,74,.5);animation:pulse 1.6s infinite}
+  .status-pill.stopped{background:rgba(122,134,149,.14);color:var(--muted)}
+  .status-pill.starting{background:rgba(217,119,6,.14);color:var(--warn)}
+  .status-pill.starting .dot{background:var(--warn)}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}70%{box-shadow:0 0 0 8px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+  nav{
+    display:flex;gap:4px;margin-top:14px;flex-wrap:wrap;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    background:var(--card);border:1px solid var(--card-bd);border-radius:var(--radius);padding:6px;
+  }
+  nav button{
+    border:none;background:transparent;color:var(--muted);font-size:13px;font-weight:600;
+    padding:9px 16px;border-radius:10px;cursor:pointer;transition:.18s;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  nav button:hover{background:rgba(59,130,246,.08)}
+  nav button.active{background:var(--accent);color:#fff;box-shadow:0 4px 12px rgba(59,130,246,.3)}
+  main{flex:1;margin-top:14px;overflow:auto;border-radius:var(--radius)}
+  .panel{
+    display:none;height:100%;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    background:var(--card);border:1px solid var(--card-bd);border-radius:var(--radius);
+    padding:16px;box-shadow:var(--shadow);overflow:auto;
+  }
+  .panel.active{display:block}
+  .panel h2{font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .panel h2 i{color:var(--accent)}
+  .hint{color:var(--muted);font-size:12px;line-height:1.6}
+
+  /* 按钮 */
+  .btn{
+    border:none;cursor:pointer;border-radius:10px;padding:8px 14px;
+    font-size:13px;font-weight:600;color:#fff;transition:.18s;
+    display:inline-flex;align-items:center;gap:6px;background:var(--accent);
+  }
+  .btn:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.ok{background:var(--ok)}
+  .btn.warn{background:var(--warn)}
+  .btn.danger{background:var(--danger)}
+  .btn.ghost{background:rgba(122,134,149,.14);color:var(--text)}
+  .btn.sm{padding:5px 10px;font-size:12px}
+  .btn.big{padding:12px 22px;font-size:15px}
+
+  /* 截图面板 */
+  .capture-grid{display:grid;grid-template-columns:340px 1fr;gap:16px;min-height:0}
+  .capture-controls{display:flex;flex-direction:column;gap:12px}
+  .action-btns{display:flex;flex-direction:column;gap:10px}
+  .timer-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .timer-row select{padding:6px 8px;border:1px solid rgba(122,134,149,.3);border-radius:8px;background:#fff;color:var(--text)}
+  .preview-card{
+    background:rgba(255,255,255,.6);border:1px solid rgba(122,134,149,.14);
+    border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:0;
+  }
+  .preview-card .ph{
+    font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;
+  }
+  #last-shot-wrap{flex:1;min-height:0;overflow:auto;border-radius:10px;background:rgba(18,26,38,.06);display:flex;align-items:center;justify-content:center}
+  #last-shot-wrap img{max-width:100%;max-height:100%;display:block;border-radius:10px}
+  #last-shot-wrap .placeholder{color:var(--muted);font-size:13px;padding:30px;text-align:center}
+  .preview-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+  .tips-card{
+    background:rgba(255,255,255,.6);border:1px solid rgba(122,134,149,.14);
+    border-radius:14px;padding:14px;font-size:12.5px;line-height:1.9;color:var(--muted);
+  }
+  .tips-card b{color:var(--text)}
+  .tips-card kbd{
+    background:rgba(59,130,246,.12);color:var(--accent);border-radius:6px;
+    padding:1px 7px;font-size:11.5px;font-family:Consolas,monospace;
+  }
+
+  /* 录屏面板 */
+  .rec-wrap{display:flex;flex-direction:column;gap:14px}
+  .rec-status-card{
+    background:rgba(255,255,255,.6);border:1px solid rgba(122,134,149,.14);
+    border-radius:14px;padding:16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+  }
+  .rec-status-card .big-label{font-size:16px;font-weight:700}
+  .rec-status-card .sub{font-size:12px;color:var(--muted);margin-top:4px}
+  .rec-timer{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent)}
+  .rec-controls{display:flex;gap:12px;flex-wrap:wrap}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 16px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  .field input,.field select{
+    width:100%;padding:9px 11px;border:1px solid rgba(122,134,149,.3);
+    border-radius:10px;font-size:13px;background:#fff;color:var(--text);
+  }
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent)}
+  .switch-row{display:flex;align-items:center;gap:8px}
+  .rec-result{
+    background:rgba(255,255,255,.6);border:1px solid rgba(122,134,149,.14);
+    border-radius:14px;padding:12px;display:none;flex-direction:column;gap:10px;
+  }
+  .rec-result.show{display:flex}
+  .rec-result video{width:100%;max-height:340px;border-radius:10px;background:#000}
+  .rec-meta{font-size:12px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+
+  /* 历史 */
+  .hist-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .filter-btn{
+    border:1px solid rgba(122,134,149,.25);background:rgba(255,255,255,.6);color:var(--muted);
+    border-radius:999px;padding:6px 14px;font-size:12.5px;cursor:pointer;transition:.18s;font-weight:600;
+  }
+  .filter-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .filter-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .hist-count{font-size:12px;color:var(--muted)}
+  .hist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+  .hist-card{
+    background:rgba(255,255,255,.6);border:1px solid rgba(122,134,149,.14);
+    border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:.18s;
+  }
+  .hist-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(31,50,90,.12)}
+  .hist-thumb{aspect-ratio:16/10;background:rgba(18,26,38,.08);cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .hist-thumb img{width:100%;height:100%;object-fit:cover}
+  .hist-thumb .vicon{font-size:34px;opacity:.5}
+  .hist-body{padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+  .hist-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hist-meta{font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
+  .hist-actions{display:flex;gap:6px;margin-top:2px}
+  .empty{color:var(--muted);font-size:13px;padding:30px;text-align:center}
+  .pager{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:16px}
+  .pager span{font-size:12.5px;color:var(--muted)}
+
+  /* 设置 */
+  .settings-card{
+    background:rgba(255,255,255,.6);border:1px solid rgba(122,134,149,.14);
+    border-radius:14px;padding:16px;margin-bottom:14px;
+  }
+  .settings-card h3{font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .settings-card h3 i{color:var(--accent)}
+  .hk-row{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px dashed rgba(122,134,149,.18)}
+  .hk-row:last-child{border-bottom:none}
+  .hk-row .hk-name{font-size:13px;flex:1}
+  .hk-row .hk-combo{
+    font-family:Consolas,monospace;font-size:13px;font-weight:600;color:var(--accent);
+    background:rgba(59,130,246,.1);padding:5px 12px;border-radius:8px;min-width:150px;text-align:center;
+  }
+  .hk-row .hk-combo.recording{color:var(--warn);background:rgba(217,119,6,.12)}
+  .path-line{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+  .path-line code{background:rgba(59,130,246,.1);color:var(--accent);padding:3px 8px;border-radius:6px;word-break:break-all}
+  .settings-actions{display:flex;gap:10px;margin-top:14px}
+
+  /* 模态（预览/裁剪） */
+  .modal-mask{
+    position:fixed;inset:0;background:rgba(20,28,45,.55);display:none;align-items:center;justify-content:center;z-index:100;padding:20px;
+  }
+  .modal-mask.show{display:flex}
+  .modal{
+    background:#fff;border-radius:18px;padding:18px;width:100%;max-width:860px;
+    box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;max-height:92vh;
+  }
+  .modal h3{margin-bottom:12px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .modal-body{overflow:auto;flex:1}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+  .modal img{max-width:100%;max-height:70vh;border-radius:10px;display:block;margin:0 auto}
+
+  /* 裁剪交互 */
+  .crop-stage{position:relative;display:inline-block;margin:0 auto;line-height:0;cursor:crosshair;border-radius:10px;overflow:hidden}
+  .crop-stage img{display:block;max-width:100%;max-height:70vh}
+  .crop-box{
+    position:absolute;border:2px solid var(--accent);background:rgba(59,130,246,.12);
+    box-shadow:0 0 0 9999px rgba(20,28,45,.4);display:none;pointer-events:none;
+  }
+  .crop-box .crop-size{
+    position:absolute;left:0;top:-24px;background:var(--accent);color:#fff;
+    font-size:11px;padding:2px 8px;border-radius:6px;white-space:nowrap;
+  }
+
+  .toast{
+    position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:200;
+    background:rgba(18,26,38,.92);color:#fff;padding:10px 18px;border-radius:10px;
+    font-size:13px;opacity:0;transition:.3s;pointer-events:none;max-width:80vw;
+  }
+  .toast.show{opacity:1}
+  .toast.err{background:rgba(220,38,38,.92)}
+  .toast.ok{background:rgba(22,163,74,.92)}
+
+  @media (max-width:820px){.capture-grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="title"><i>📸</i> 截屏录屏</div>
+    <span id="rec-pill" class="status-pill stopped"><span class="dot"></span>未录制</span>
+    <div class="spacer"></div>
+    <a class="back" href="javascript:history.length>1?history.back():location.href='/'">← 返回</a>
+  </header>
+
+  <nav>
+    <button class="active" data-tab="capture" onclick="switchTab(this,'capture')">📸 截图</button>
+    <button data-tab="recording" onclick="switchTab(this,'recording');refreshRecStatus()">🎥 录屏</button>
+    <button data-tab="history" onclick="switchTab(this,'history');loadHistory()">🗂️ 历史</button>
+    <button data-tab="settings" onclick="switchTab(this,'settings');loadSettings()">⚙️ 设置</button>
+  </nav>
+
+  <main>
+    <!-- ═══════ 截图 ═══════ -->
+    <section id="view-capture" class="panel active">
+      <div class="capture-grid">
+        <div class="capture-controls">
+          <div class="action-btns">
+            <button class="btn big" onclick="capture('full')"><i>🖥️</i> 全屏截图</button>
+            <button class="btn big" onclick="capture('window')"><i>🪟</i> 活动窗口截图</button>
+            <button class="btn big" style="background:linear-gradient(90deg,var(--accent-2),var(--accent))" onclick="captureRegion()"><i>✂️</i> 区域截图</button>
+          </div>
+          <div class="timer-row">
+            延迟 <select id="capture-delay">
+              <option value="0">立即</option>
+              <option value="3">3 秒</option>
+              <option value="5">5 秒</option>
+            </select>
+          </div>
+          <div class="preview-card" style="flex:1">
+            <div class="ph"><i>🖼️</i> 最近截图</div>
+            <div id="last-shot-wrap"><div class="placeholder">截图后在这里预览</div></div>
+            <div class="preview-actions" id="last-shot-actions" style="display:none">
+              <button class="btn sm" onclick="openLast()">📂 打开位置</button>
+              <button class="btn sm ghost" onclick="copyLast()">📋 复制到剪贴板</button>
+              <button class="btn sm danger" onclick="deleteLast()">🗑️ 删除</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="tips-card">
+            <b>使用技巧</b><br>
+            <span>· 全局热键（应用在后台也生效）：</span><br>
+            <kbd id="hk-screenshot">Ctrl+Shift+A</kbd> 全屏截图 · <kbd id="hk-window">Ctrl+Shift+W</kbd> 活动窗口 · <kbd id="hk-record">Ctrl+Alt+R</kbd> 开始/停止录屏<br>
+            <span>· 区域截图：先截取全屏，再在预览中拖拽框选要保留的区域后保存。</span><br>
+            <span>· 截图默认保存在 <code id="cap-dir-hint" style="font-family:Consolas;font-size:11.5px"></code></span><br>
+            <span>· 热键可在「设置」页修改。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════ 录屏 ═══════ -->
+    <section id="view-recording" class="panel">
+      <div class="rec-wrap">
+        <div class="rec-status-card">
+          <div>
+            <div class="big-label" id="rec-state-label">未在录制</div>
+            <div class="sub" id="rec-state-sub">点击「开始录屏」按钮开始录制整个屏幕</div>
+          </div>
+          <div style="flex:1;text-align:center">
+            <div class="rec-timer" id="rec-timer">00:00</div>
+            <div class="sub">已录制时长</div>
+          </div>
+          <div class="rec-controls">
+            <button class="btn ok big" id="btn-rec-start" onclick="recStart()">▶ 开始录屏</button>
+            <button class="btn danger big" id="btn-rec-stop" onclick="recStop()" disabled>■ 停止</button>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field">
+            <label>帧率 (FPS)</label>
+            <input id="rec-fps" type="number" min="1" max="60" placeholder="20">
+          </div>
+          <div class="field">
+            <label>编码预设（清晰↔速度）</label>
+            <select id="rec-quality">
+              <option value="ultrafast">ultrafast</option>
+              <option value="superfast">superfast</option>
+              <option value="veryfast" selected>veryfast</option>
+              <option value="faster">faster</option>
+              <option value="fast">fast</option>
+              <option value="medium">medium</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>系统声音</label>
+            <div class="switch-row" style="height:36px">
+              <input id="rec-audio" type="checkbox" style="width:18px;height:18px">
+              <span style="font-size:12px">录制声音（需虚拟音频设备）</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hint" id="rec-ffmpeg-hint"></div>
+
+        <div class="rec-result" id="rec-result">
+          <video id="rec-video" controls></video>
+          <div class="rec-meta" id="rec-meta"></div>
+          <div class="preview-actions">
+            <button class="btn sm" onclick="openRecResult()">📂 打开位置</button>
+            <button class="btn sm danger" onclick="deleteRecResult()">🗑️ 删除</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════ 历史 ═══════ -->
+    <section id="view-history" class="panel">
+      <div class="hist-toolbar">
+        <button class="filter-btn active" data-kind="" onclick="setFilter(this,'')">全部</button>
+        <button class="filter-btn" data-kind="screenshot" onclick="setFilter(this,'screenshot')">截图</button>
+        <button class="filter-btn" data-kind="video" onclick="setFilter(this,'video')">录屏</button>
+        <div class="spacer"></div>
+        <span class="hist-count" id="hist-count"></span>
+        <button class="btn sm ghost" onclick="loadHistory()">刷新</button>
+      </div>
+      <div class="hist-grid" id="hist-grid"><div class="empty">加载中…</div></div>
+      <div class="pager" id="hist-pager" style="display:none">
+        <button class="btn sm ghost" id="btn-prev" onclick="changePage(-1)">← 上一页</button>
+        <span id="hist-page-info"></span>
+        <button class="btn sm ghost" id="btn-next" onclick="changePage(1)">下一页 →</button>
+      </div>
+    </section>
+
+    <!-- ═══════ 设置 ═══════ -->
+    <section id="view-settings" class="panel">
+      <div class="settings-card">
+        <h3><i>⚙️</i> 基础设置</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label>输出目录（留空 = 默认 data/captures）</label>
+            <input id="set-output-dir" placeholder="如 D:\Captures">
+          </div>
+          <div class="field">
+            <label>截图格式</label>
+            <select id="set-shot-format">
+              <option value="png">PNG（无损）</option>
+              <option value="jpg">JPG（体积小）</option>
+            </select>
+          </div>
+        </div>
+        <div class="path-line" style="margin-top:12px">当前保存位置：<code id="set-root-path"></code></div>
+      </div>
+
+      <div class="settings-card">
+        <h3><i>⌨️</i> 全局快捷键</h3>
+        <div class="switch-row" style="margin-bottom:10px">
+          <input id="set-hk-enabled" type="checkbox" style="width:18px;height:18px">
+          <span style="font-size:13px">启用全局热键（应用在后台也能触发）</span>
+        </div>
+        <div id="hk-list"></div>
+        <div class="hint" style="margin-top:10px">点击「重新绑定」后按下新的组合键（Ctrl / Alt / Shift / Win + 字母、数字或 F1-F12）。绑定冲突时会注册失败。</div>
+      </div>
+
+      <div class="settings-actions">
+        <button class="btn" onclick="saveSettings(true)">💾 保存并立即应用</button>
+        <button class="btn ghost" onclick="loadSettings()">还原</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 预览模态 -->
+<div class="modal-mask" id="preview-modal">
+  <div class="modal">
+    <h3 id="preview-title">预览</h3>
+    <div class="modal-body" id="preview-body"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="hide('preview-modal')">关闭</button>
+      <button class="btn sm" id="preview-open" onclick="previewOpen()">📂 打开位置</button>
+      <button class="btn sm danger" id="preview-del" onclick="previewDelete()">🗑️ 删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- 区域裁剪模态 -->
+<div class="modal-mask" id="crop-modal">
+  <div class="modal">
+    <h3><i>✂️</i> 框选要保留的区域 <span class="hint" id="crop-hint"></span></h3>
+    <div class="modal-body" style="text-align:center">
+      <div class="crop-stage" id="crop-stage">
+        <img id="crop-img" alt="待裁剪">
+        <div class="crop-box" id="crop-box"><span class="crop-size" id="crop-size"></span></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="cancelCrop()">取消</button>
+      <button class="btn" onclick="confirmCrop()">✅ 保存裁剪区域</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const apiBase='/api/screencap';
+
+  window.toast=function(msg,type){
+    const t=$('#toast');t.textContent=msg;t.className='toast show '+(type||'');
+    clearTimeout(t._t);t._t=setTimeout(()=>t.className='toast',2600);
+  };
+  window.hide=id=>$('#'+id).classList.remove('show');
+  window.switchTab=function(btn,name){
+    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    const v=$('#view-'+name);if(v)v.classList.add('active');
+  };
+
+  async function api(method,path,body){
+    const opt={method,headers:{}};
+    if(body!==undefined){opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(body);}
+    const res=await fetch(apiBase+path,opt);
+    let data=null;try{data=await res.json();}catch(e){}
+    if(!res.ok){
+      const msg=(data&&(data.detail||data.message))||('请求失败 '+res.status);
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  // ── 当前配置缓存（页面内热键提示/校验用） ──
+  let currentSettings=null;
+  async function refreshSettings(){
+    try{const d=await api('GET','/settings');currentSettings=d.settings;
+      // 更新提示
+      const hk=currentSettings.hotkeys||{};
+      if($('#hk-screenshot'))$('#hk-screenshot').textContent=hk.screenshot||'Ctrl+Shift+A';
+      if($('#hk-window'))$('#hk-window').textContent=hk.screenshot_window||'Ctrl+Shift+W';
+      if($('#hk-record'))$('#hk-record').textContent=hk.recording||'Ctrl+Alt+R';
+      if($('#cap-dir-hint'))$('#cap-dir-hint').textContent=currentSettings.output_dir||'(data/captures)';
+    }catch(e){}
+  }
+
+  // ═══════════ 截图 ═══════════
+  let lastShot=null;
+
+  window.capture=async function(mode){
+    const delay=parseInt($('#capture-delay').value)||0;
+    if(delay>0){
+      toast(`${delay} 秒后截图…`,'');
+      await new Promise(r=>setTimeout(r,delay*1000));
+    }
+    try{
+      toast('正在截图…','');
+      const r=await api('POST','/capture',{mode});
+      if(!r.success){toast(r.error||'截图失败','err');return;}
+      setLastShot(r);
+      toast('截图已保存','ok');
+      refreshHistoryIfVisible();
+    }catch(e){toast(e.message,'err')}
+  };
+
+  function setLastShot(r){
+    lastShot=r;
+    const wrap=$('#last-shot-wrap');
+    wrap.innerHTML=`<img src="${r.url}" alt="截图">`;
+    $('#last-shot-actions').style.display='';
+    // 自动打开所在文件夹（可选提示）
+    if(r.mode)refreshHistoryIfVisible();
+  }
+
+  window.openLast=async function(){if(!lastShot)return;try{const d=await api('POST','/open',{path:lastShot.path});toast(d.message,'ok');}catch(e){toast(e.message,'err')}};
+  window.copyLast=async function(){if(!lastShot)return;try{const d=await api('POST','/clipboard',{path:lastShot.path});toast(d.message,d.success?'ok':'err');}catch(e){toast(e.message,'err')}};
+  window.deleteLast=async function(){
+    if(!lastShot)return;
+    if(!confirm('确定删除该截图？'))return;
+    try{const d=await api('POST','/delete',{path:lastShot.path});
+      if(d.success){toast('已删除','ok');lastShot=null;$('#last-shot-wrap').innerHTML='<div class="placeholder">截图后在这里预览</div>';$('#last-shot-actions').style.display='none';refreshHistoryIfVisible();}
+      else toast(d.error||'删除失败','err');
+    }catch(e){toast(e.message,'err')}
+  };
+
+  // ── 区域截图（全屏 → 拖拽框选 → 裁剪） ──
+  window.captureRegion=async function(){
+    try{
+      toast('正在截取全屏以选择区域…','');
+      const r=await api('POST','/capture',{mode:'full'});
+      if(!r.success){toast(r.error||'截图失败','err');return;}
+      regionSource=r;
+      const img=$('#crop-img');
+      img.src=r.url;
+      $('#crop-hint').textContent=`${r.width}×${r.height}`;
+      $('#crop-stage').classList.remove('active');
+      $('#crop-modal').classList.add('show');
+      // 等待图片加载后重新初始化裁剪状态
+      img.onload=function(){initCrop();};
+      lastShot=r;
+    }catch(e){toast(e.message,'err')}
+  };
+
+  let regionSource=null, cropDrag=null, cropBox=null, cropImg=null;
+  const cropState={sx:0,sy:0,ex:0,ey:0};
+
+  function initCrop(){
+    cropBox=$('#crop-box');cropImg=$('#crop-img');
+    cropBox.style.display='none';
+    cropState.sx=cropState.sy=cropState.ex=cropState.ey=0;
+  }
+
+  function setupCropEvents(){
+    const stage=$('#crop-stage');
+    const img=$('#crop-img');
+    stage.addEventListener('mousedown',function(e){
+      const rect=stage.getBoundingClientRect();
+      cropState.sx=e.clientX-rect.left;cropState.sy=e.clientY-rect.top;
+      cropState.ex=cropState.sx;cropState.ey=cropState.sy;
+      cropDrag=true;
+      cropBox.style.display='block';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove',function(e){
+      if(!cropDrag)return;
+      const rect=stage.getBoundingClientRect();
+      cropState.ex=Math.max(0,Math.min(rect.width,e.clientX-rect.left));
+      cropState.ey=Math.max(0,Math.min(rect.height,e.clientY-rect.top));
+      updateCropBox();
+    });
+    document.addEventListener('mouseup',function(){
+      if(!cropDrag)return;
+      cropDrag=false;
+      if(getCropW()<5||getCropH()<5){cropBox.style.display='none';return;}
+      updateCropBox();
+    });
+  }
+
+  function getCropW(){return Math.abs(cropState.ex-cropState.sx);}
+  function getCropH(){return Math.abs(cropState.ey-cropState.sy);}
+
+  function updateCropBox(){
+    const left=Math.min(cropState.sx,cropState.ex);
+    const top=Math.min(cropState.sy,cropState.ey);
+    const w=getCropW(),h=getCropH();
+    cropBox.style.left=left+'px';cropBox.style.top=top+'px';
+    cropBox.style.width=w+'px';cropBox.style.height=h+'px';
+    const img=cropImg;
+    const scaleX=img.naturalWidth/img.getBoundingClientRect().width;
+    const scaleY=img.naturalHeight/img.getBoundingClientRect().height;
+    $('#crop-size').textContent=Math.round(w*scaleX)+' × '+Math.round(h*scaleY);
+  }
+
+  window.confirmCrop=async function(){
+    const img=cropImg;
+    if(!img||!img.naturalWidth){toast('请先框选区域','err');return;}
+    const scaleX=img.naturalWidth/img.getBoundingClientRect().width;
+    const scaleY=img.naturalHeight/img.getBoundingClientRect().height;
+    const left=Math.min(cropState.sx,cropState.ex);
+    const top=Math.min(cropState.sy,cropState.ey);
+    const w=getCropW(),h=getCropH();
+    if(w<5||h<5){toast('框选区域太小','err');return;}
+    const region={
+      left:Math.round(left*scaleX),
+      top:Math.round(top*scaleY),
+      width:Math.round(w*scaleX),
+      height:Math.round(h*scaleY)
+    };
+    try{
+      toast('正在裁剪…','');
+      const r=await api('POST','/crop',{source:regionSource.path,region});
+      if(!r.success){toast(r.error||'裁剪失败','err');return;}
+      hide('crop-modal');
+      setLastShot(r);
+      toast('区域截图已保存','ok');
+    }catch(e){toast(e.message,'err')}
+  };
+  window.cancelCrop=function(){hide('crop-modal');};
+
+  // ═══════════ 录屏 ═══════════
+  let recTimerId=null;
+
+  window.refreshRecStatus=async function(){
+    try{
+      const s=await api('GET','/recording/status');
+      updateRecUI(s);
+    }catch(e){/* 静默 */}
+  };
+
+  function updateRecUI(s){
+    const pill=$('#rec-pill');
+    const running=s.running;
+    if(running){
+      pill.className='status-pill running';pill.innerHTML='<span class="dot"></span>录制中';
+      $('#rec-state-label').textContent='正在录制';
+      $('#rec-state-sub').textContent='录制文件：'+(s.output_path?s.output_path.split(/[\\\/]/).pop():'');
+      $('#btn-rec-start').disabled=true;
+      $('#btn-rec-stop').disabled=false;
+      if(!recTimerId)recTimerId=setInterval(updateRecTimer,1000);
+      if(s.elapsed!=null)$('#rec-timer').textContent=fmtTime(s.elapsed);
+    }else{
+      pill.className='status-pill stopped';pill.innerHTML='<span class="dot"></span>未录制';
+      $('#rec-state-label').textContent='未在录制';
+      $('#rec-state-sub').textContent='点击「开始录屏」按钮开始录制整个屏幕';
+      $('#btn-rec-start').disabled=false;
+      $('#btn-rec-stop').disabled=true;
+      $('#rec-timer').textContent='00:00';
+      if(recTimerId){clearInterval(recTimerId);recTimerId=null;}
+    }
+    const ff=s.ffmpeg_available;
+    const hint=$('#rec-ffmpeg-hint');
+    if(ff===false){
+      hint.innerHTML='<b style="color:var(--danger)">⚠️ FFmpeg 不可用，无法录屏。</b> 请将 <code>ffmpeg.exe</code> 放入 <code>data</code> 目录，或在配置中设置 <code>ffmpeg_path</code>。';
+    }else if(hint){
+      hint.textContent='';
+    }
+  }
+
+  function fmtTime(sec){
+    sec=Math.floor(sec||0);
+    const m=String(Math.floor(sec/60)).padStart(2,'0');
+    const s=String(sec%60).padStart(2,'0');
+    return `${m}:${s}`;
+  }
+
+  function updateRecTimer(){
+    // 用本地起始时间 + 已用秒数推进显示
+    const el=$('#rec-timer');
+    if(el && el.dataset.elapsed!==undefined){
+      const base=parseFloat(el.dataset.elapsed)||0;
+      el.textContent=fmtTime(base+1);
+      el.dataset.elapsed=base+1;
+    }
+  }
+
+  window.recStart=async function(){
+    try{
+      const fps=parseInt($('#rec-fps').value)||20;
+      const quality=$('#rec-quality').value;
+      const audio=$('#rec-audio').checked;
+      const r=await api('POST','/recording/start',{fps,audio,quality});
+      if(!r.success){toast(r.error||'开始录屏失败','err');return;}
+      toast(r.message||'开始录屏','ok');
+      $('#rec-result').classList.remove('show');
+      refreshRecStatus();
+    }catch(e){toast(e.message,'err')}
+  };
+
+  window.recStop=async function(){
+    try{
+      toast('正在停止并保存…','');
+      const r=await api('POST','/recording/stop');
+      if(!r.success){toast(r.error||'停止失败','err');refreshRecStatus();return;}
+      refreshRecStatus();
+      showRecResult(r);
+      toast('录屏已保存','ok');
+    }catch(e){toast(e.message,'err')}
+  };
+
+  let lastRec=null;
+  function showRecResult(r){
+    lastRec=r;
+    if(!r.path||!r.url)return;
+    $('#rec-result').classList.add('show');
+    $('#rec-video').src=r.url;
+    const dur=r.duration?fmtTime(r.duration):'—';
+    const size=r.size?formatSize(r.size):'';
+    $('#rec-meta').innerHTML=
+      `<span>⏱️ 时长 ${dur}</span><span>💾 ${size}</span>`+
+      (r.fps?`<span>🎞️ ${r.fps}fps</span>`:'')+
+      (r.audio?`<span>🔊 含声音</span>`:'');
+  }
+  window.openRecResult=async function(){if(!lastRec)return;try{const d=await api('POST','/open',{path:lastRec.path});toast(d.message,'ok');}catch(e){toast(e.message,'err')}};
+  window.deleteRecResult=async function(){
+    if(!lastRec)return;
+    if(!confirm('确定删除该录屏文件？'))return;
+    try{const d=await api('POST','/delete',{path:lastRec.path});
+      if(d.success){toast('已删除','ok');lastRec=null;$('#rec-result').classList.remove('show');refreshHistoryIfVisible();}
+      else toast(d.error||'删除失败','err');
+    }catch(e){toast(e.message,'err')}
+  };
+
+  // ═══════════ 历史 ═══════════
+  let histFilter='', histPage=1, histTotal=0, histLimit=24;
+
+  window.setFilter=function(btn,kind){
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    histFilter=kind;histPage=1;
+    loadHistory();
+  };
+
+  window.loadHistory=async function(){
+    try{
+      const d=await api('GET','/history?kind='+encodeURIComponent(histFilter)+'&page='+histPage+'&limit='+histLimit);
+      histTotal=d.total;
+      const grid=$('#hist-grid');
+      $('#hist-count').textContent=`共 ${d.total} 项`;
+      $('#hist-page-info').textContent=`第 ${d.page} / ${Math.max(1,Math.ceil(d.total/histLimit))} 页`;
+      $('#hist-pager').style.display=d.total>histLimit?'':'none';
+      if(!d.items.length){
+        grid.innerHTML='<div class="empty">暂无记录，先截个图或录一段屏吧</div>';
+        return;
+      }
+      grid.innerHTML=d.items.map(it=>{
+        const thumb=it.kind==='video'
+          ?(it.thumb_url?`<img src="${it.thumb_url}" alt="">`:'<span class="vicon">🎬</span>')
+          :`<img src="${it.url}" alt="">`;
+        return `<div class="hist-card">
+          <div class="hist-thumb" onclick="preview('${it.kind}','${encodeURIComponent(it.url)}','${encodeURIComponent(it.path)}','${it.thumb_url?encodeURIComponent(it.thumb_url):''}')">${thumb}</div>
+          <div class="hist-body">
+            <div class="hist-name" title="${it.name}">${it.kind==='video'?'🎬':'🖼️'} ${it.name}</div>
+            <div class="hist-meta"><span>${it.time}</span><span>${formatSize(it.size)}</span></div>
+            <div class="hist-actions">
+              <button class="btn sm ghost" onclick="event.stopPropagation();openHist('${encodeURIComponent(it.path)}')">📂</button>
+              <button class="btn sm danger" onclick="event.stopPropagation();deleteHist('${encodeURIComponent(it.path)}')">🗑️</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }catch(e){toast(e.message,'err')}
+  };
+
+  window.changePage=function(delta){
+    const totalPages=Math.max(1,Math.ceil(histTotal/histLimit));
+    histPage=Math.max(1,Math.min(totalPages,histPage+delta));
+    loadHistory();
+  };
+
+  let previewState=null;
+  window.preview=function(kind,url,path,thumbUrl){
+    const body=$('#preview-body');
+    if(kind==='video'){
+      body.innerHTML=`<video controls src="${decodeURIComponent(url)}" style="width:100%;max-height:70vh;border-radius:10px;background:#000"></video>`;
+    }else{
+      body.innerHTML=`<img src="${decodeURIComponent(url)}" alt="预览">`;
+    }
+    previewState={kind,path:decodeURIComponent(path),url:decodeURIComponent(url)};
+    $('#preview-title').textContent=kind==='video'?'🎬 录屏预览':'🖼️ 截图预览';
+    $('#preview-modal').classList.add('show');
+  };
+  window.previewOpen=async function(){if(!previewState)return;try{const d=await api('POST','/open',{path:previewState.path});toast(d.message,'ok');}catch(e){toast(e.message,'err')}};
+  window.previewDelete=async function(){
+    if(!previewState)return;
+    if(!confirm('确定删除该文件？'))return;
+    try{const d=await api('POST','/delete',{path:previewState.path});
+      if(d.success){toast('已删除','ok');hide('preview-modal');previewState=null;loadHistory();}
+      else toast(d.error||'删除失败','err');
+    }catch(e){toast(e.message,'err')}
+  };
+
+  window.openHist=async function(path){
+    try{const d=await api('POST','/open',{path:decodeURIComponent(path)});toast(d.message,'ok');}catch(e){toast(e.message,'err')}
+  };
+  window.deleteHist=async function(path){
+    if(!confirm('确定删除该文件？'))return;
+    try{const d=await api('POST','/delete',{path:decodeURIComponent(path)});
+      if(d.success){toast('已删除','ok');loadHistory();}
+      else toast(d.error||'删除失败','err');
+    }catch(e){toast(e.message,'err')}
+  };
+
+  function refreshHistoryIfVisible(){
+    if($('#view-history').classList.contains('active'))loadHistory();
+  }
+
+  function formatSize(n){
+    if(!n)return'';
+    if(n<1024)return n+' B';
+    if(n<1048576)return (n/1024).toFixed(1)+' KB';
+    if(n<1073741824)return (n/1048576).toFixed(1)+' MB';
+    return (n/1073741824).toFixed(2)+' GB';
+  }
+
+  // ═══════════ 设置 ═══════════
+  let hkBinding=null;
+
+  window.loadSettings=async function(){
+    try{
+      const d=await api('GET','/settings');
+      currentSettings=d.settings;
+      $('#set-output-dir').value=d.settings.output_dir||'';
+      $('#set-shot-format').value=d.settings.screenshot_format||'png';
+      $('#rec-fps').value=d.settings.record_fps||20;
+      $('#rec-quality').value=d.settings.record_quality||'veryfast';
+      $('#rec-audio').checked=!!d.settings.record_audio;
+      $('#set-hk-enabled').checked=d.settings.hotkeys_enabled!==false;
+      renderHotkeys(d.settings.hotkeys||{});
+      const h=await api('GET','/history',null).catch(()=>null);
+      if(h&&h.root)$('#set-root-path').textContent=h.root;
+    }catch(e){toast(e.message,'err')}
+  };
+
+  const HK_LABELS={
+    screenshot:['🖥️ 全屏截图',''],
+    screenshot_window:['🪟 活动窗口截图',''],
+    recording:['🎥 开始/停止录屏','warn']
+  };
+
+  function renderHotkeys(hk){
+    const list=$('#hk-list');
+    list.innerHTML='';
+    Object.keys(HK_LABELS).forEach(key=>{
+      const [label,cls]=HK_LABELS[key];
+      const row=document.createElement('div');
+      row.className='hk-row';
+      row.innerHTML=`
+        <span class="hk-name">${label}</span>
+        <span class="hk-combo ${cls==='warn'?'recording':''}" data-key="${key}">${hk[key]||'未设置'}</span>
+        <button class="btn sm ghost" data-bind="${key}" onclick="startRebind('${key}',this)">重新绑定</button>`;
+      list.appendChild(row);
+    });
+  }
+
+  window.startRebind=function(key,btn){
+    if(hkBinding){btn.textContent='重新绑定';hkBinding=null;}
+    // 取消其他按钮的绑定状态
+    document.querySelectorAll('[data-bind]').forEach(b=>{
+      if(b!==btn)b.textContent='重新绑定';
+    });
+    hkBinding=key;
+    btn.textContent='按下快捷键… (Esc 取消)';
+    btn.style.color='var(--danger)';
+  };
+
+  function comboToString(e){
+    const mods=[];
+    if(e.ctrlKey)mods.push('Ctrl');
+    if(e.altKey)mods.push('Alt');
+    if(e.shiftKey)mods.push('Shift');
+    if(e.metaKey)mods.push('Win');
+    const k=e.key;
+    let key;
+    if(/^[a-zA-Z]$/.test(k))key=k.toUpperCase();
+    else if(/^[0-9]$/.test(k))key=k;
+    else if(/^F([1-9]|1[0-2])$/.test(k))key=k.toUpperCase();
+    else if(k===' ')key='Space';
+    else return null;
+    if(!mods.length)return null;
+    return mods.join('+')+'+'+key;
+  }
+
+  document.addEventListener('keydown',function(e){
+    // 热键绑定监听（设置页）
+    if(hkBinding){
+      e.preventDefault();e.stopPropagation();
+      if(e.key==='Escape'){
+        hkBinding=null;
+        document.querySelectorAll('[data-bind]').forEach(b=>{b.textContent='重新绑定';b.style.color='';});
+        toast('已取消绑定','');
+        return;
+      }
+      const combo=comboToString(e);
+      if(!combo){return;}
+      if(!currentSettings)currentSettings={};
+      if(!currentSettings.hotkeys)currentSettings.hotkeys={};
+      currentSettings.hotkeys[hkBinding]=combo;
+      renderHotkeys(currentSettings.hotkeys);
+      hkBinding=null;
+      document.querySelectorAll('[data-bind]').forEach(b=>{b.textContent='重新绑定';b.style.color='';});
+      toast(`已设置：${combo}`,'ok');
+      e.preventDefault();
+      return;
+    }
+  });
+
+  window.saveSettings=async function(rebind){
+    const hotkeys={};
+    document.querySelectorAll('.hk-combo').forEach(el=>{
+      hotkeys[el.dataset.key]=el.textContent;
+    });
+    const settings={
+      output_dir:$('#set-output-dir').value.trim(),
+      screenshot_format:$('#set-shot-format').value,
+      record_fps:parseInt($('#rec-fps').value)||20,
+      record_quality:$('#rec-quality').value,
+      record_audio:$('#rec-audio').checked,
+      hotkeys_enabled:$('#set-hk-enabled').checked,
+      hotkeys
+    };
+    try{
+      const d=await api('POST','/settings',{settings,rebind:!!rebind});
+      if(!d.success){toast(d.error||'保存失败','err');return;}
+      currentSettings=d.settings;
+      toast(d.message||'配置已保存',rebind?'ok':'ok');
+      refreshSettings();
+      // 同步到提示
+    }catch(e){toast(e.message,'err')}
+  };
+
+  // ═══════════ WebSocket 实时事件 ═══════════
+  function connectWs(){
+    const proto=location.protocol==='https:'?'wss':'ws';
+    let ws;
+    try{ws=new WebSocket(`${proto}://${location.host}${apiBase}/ws`);}catch(e){return;}
+    ws.onopen=function(){/* 连接成功，同步一次状态 */}
+    ws.onmessage=function(e){
+      let msg;try{msg=JSON.parse(e.data);}catch(err){return;}
+      if(!msg||!msg.type)return;
+      if(msg.type==='captured'){
+        toast('📸 全局热键：截图已保存','ok');
+        refreshRecStatus();
+        refreshHistoryIfVisible();
+        if(msg.mode==='full'||msg.mode==='window')setLastShot(msg);
+      }else if(msg.type==='recording_started'){
+        toast('🎥 已开始录屏','ok');
+        refreshRecStatus();
+      }else if(msg.type==='recording_stopped'){
+        toast('🎥 录屏已保存','ok');
+        refreshRecStatus();
+        if(msg.path&&msg.url)showRecResult(msg);
+      }else if(msg.type==='error'){
+        toast('热键操作失败：'+(msg.error||'未知错误'),'err');
+      }
+    };
+    ws.onclose=function(){setTimeout(connectWs,3000)};
+  }
+
+  // ═══════════ 初始化 ═══════════
+  setupCropEvents();
+  refreshSettings();
+  refreshRecStatus();
+  connectWs();
+
+  // 页面内热键（仅在全局热键未启用时兜底）
+  document.addEventListener('keydown',function(e){
+    if(currentSettings&&currentSettings.hotkeys_enabled===false){
+      const combo=comboToString(e);
+      if(!combo)return;
+      const hk=currentSettings.hotkeys||{};
+      if(combo===hk.screenshot){e.preventDefault();capture('full');}
+      else if(combo===hk.screenshot_window){e.preventDefault();capture('window');}
+      else if(combo===hk.recording){
+        e.preventDefault();
+        const s=$('#btn-rec-start');
+        if(s&&!s.disabled)recStart();else recStop();
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+# ===== 运行时数据（含 API Key / token / 歌曲 / 会话，绝不入库）=====
+/data/
+/*.7z
+/*.zip
+/备份/
+/logs/
+/build/
+/build38/
+/build_*.log
+/dist/
+/dist38/
+/dsh-suite/
+/redis/
+/.dsh-acl-repair/
+/.screenshots/
+/.uploads/
+/*.log
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+htmlcov/
+
+# ===== 前端依赖 / 构建产物 =====
+node_modules/
+frontend/node_modules/
+*.min.js.map
+
+# ===== 打包 / 日志 / 临时 =====
+*.spec.bak
+build_exe.tmp.spec
+backend/server.log
+backend/_check_out.txt
+backend/data/
+*.tmp
+*.bak
+*.swp
+
+# ===== 训练截图（模板已生成，截图不入库，避免体积/隐私）=====
+/*.jpg
+/*.jpeg
+/*.png
+
+# ===== 编辑器 / 系统 =====
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.lnk
+
+# ===== WebView2 / 浏览器缓存（文件被占用，且属于运行时数据）=====
+/.webview_cache/
+**/.webview_cache/
+*.webview_cache/
+/.cache/
+/*.mp4
+/*.mov
+/*.avi

@@ -1,0 +1,16 @@
+[package]
+name = "zhiyan-agent-shell"
+version = "0.1.0"
+edition = "2021"
+description = "ZhiYan Agent 桌面外壳（Rust）：进程管理 / 端口登记 / WebView2 窗口（后续阶段）"
+authors = ["ZhiYan Agent Team"]
+
+# 产物名：zhiyan-agent.exe
+[[bin]]
+name = "zhiyan-agent"
+path = "src/main.rs"
+
+# 依赖刻意保持极简：仅 serde_json，避免 gnu/msvc 工具链差异带来的编译问题
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

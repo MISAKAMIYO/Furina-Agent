@@ -1,0 +1,10 @@
+name: datetime
+author: ZhiYan
+desc: 获取当前日期和时间，支持 /time、/date、/datetime 等命令
+short_desc: 日期时间查询
+version: 1.0.0
+repo: ""
+support_platforms:
+  - webchat
+  - qq
+astrbot_version: ">=4.16,<5"

@@ -1,0 +1,5 @@
+name: plugin_list
+desc: 生成系统中所有插件的命令列表图片，支持自定义尺寸、颜色主题和导出
+version: v1.0.0
+author: ZhiYanWeb
+repo: ""

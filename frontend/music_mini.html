@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>迷你播放器</title>
+<style>
+    :root {
+        --canvas: #F6F9FE;
+        --surface: rgba(255, 255, 255, .92);
+        --surface-2: #F2F6FC;
+        --ink: #1B2333;
+        --ink-2: #5B6B80;
+        --ink-3: #9AA9BC;
+        --accent: #2F7FD6;
+        --accent-2: #5AA7F0;
+        --hair: rgba(27, 35, 51, .10);
+    }
+    html.dark {
+        --canvas: #070B1A;
+        --surface: rgba(13, 18, 42, .92);
+        --surface-2: #0E1330;
+        --ink: #EDF1FE;
+        --ink-2: #AEB8D6;
+        --ink-3: #6B7595;
+        --accent: #F0D27A;
+        --accent-2: #F7E19A;
+        --hair: rgba(255, 255, 255, .12);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+        background: var(--surface);
+        color: var(--ink);
+        font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+        overflow: hidden;
+        user-select: none;
+        border-radius: 14px;
+    }
+    .wrap { height: 100%; display: flex; flex-direction: column; padding: 10px 14px 12px; gap: 8px; }
+    .main { flex: 1; display: flex; align-items: center; gap: 12px; min-height: 0; }
+    .cover {
+        width: 76px; height: 76px; border-radius: 12px; overflow: hidden; flex: none;
+        background: var(--surface-2); display: grid; place-items: center; color: var(--ink-3);
+        border: 1px solid var(--hair); font-size: 24px;
+    }
+    .cover img { width: 100%; height: 100%; object-fit: cover; }
+    .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+    .title { font-size: 13.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .artist { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .progress { height: 4px; border-radius: 999px; background: var(--surface-2); overflow: hidden; cursor: pointer; position: relative; }
+    .progress i { display: block; height: 100%; width: 0; background: var(--accent); }
+    .row { display: flex; align-items: center; gap: 8px; }
+    .time { font-size: 10px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; }
+    .ctls { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: none; }
+    .btn {
+        width: 25px; height: 25px; border-radius: 50%; border: 1px solid var(--hair);
+        background: transparent; color: var(--ink-2); cursor: pointer; font-size: 11.5px;
+        display: grid; place-items: center; flex: none;
+    }
+    .btn:hover { color: var(--accent); border-color: var(--accent); }
+    .btn.on { color: var(--accent); border-color: var(--accent); background: var(--accent-tint, rgba(47,127,214,.12)); }
+    .btn.play { width: 36px; height: 36px; background: var(--accent); color: #fff; border: 0; font-size: 15px; }
+    .btn.play:hover { background: var(--accent-2); color: #08192b; }
+    .vol { width: 52px; height: 4px; border-radius: 999px; background: var(--surface-2); cursor: pointer; position: relative; flex: none; }
+    .vol i { display: block; height: 100%; width: 50%; border-radius: 999px; background: var(--ink-2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <div class="main">
+        <div class="cover" id="cover">♪</div>
+        <div class="mid">
+            <div class="title" id="title">未在播放</div>
+            <div class="artist" id="artist">—</div>
+            <div class="progress" id="progress" title="点击跳转"><i id="fill"></i></div>
+            <div class="row">
+                <span class="time" id="time">0:00 / 0:00</span>
+                <div class="ctls">
+                    <button class="btn" id="refresh" title="刷新（重新对接主程序）">⟲</button>
+                    <button class="btn" id="mode" title="播放模式">⟳</button>
+                    <button class="btn" id="prev" title="上一首">⏮</button>
+                    <button class="btn play" id="play" title="播放/暂停">▶</button>
+                    <button class="btn" id="next" title="下一首">⏭</button>
+                    <button class="btn" id="fav" title="收藏">♡</button>
+                    <div class="vol" id="vol" title="音量"><i id="volfill"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var last = {};
+    var duration = 0;
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    function fmt(sec) {
+        sec = Math.max(0, Math.floor(Number(sec) || 0));
+        return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+    }
+
+    function send(action, value) {
+        fetch('/api/music/command', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: action, value: value || 0 })
+        }).catch(function () {});
+    }
+
+    var MODE_LABEL = { order: '顺序播放', loop: '列表循环', single: '单曲循环', shuffle: '随机播放' };
+    var MODE_ICON = { order: '⟳', loop: '↻', single: '①', shuffle: '⤨' };
+
+    function poll() {
+        fetch('/api/music/now-playing', { cache: 'no-store' })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d || !d.success) return;
+                var title = d.title || '未在播放';
+                if (title !== last.title) {
+                    last.title = title;
+                    document.getElementById('title').textContent = title;
+                    document.getElementById('artist').textContent = d.artist || '—';
+                }
+                document.getElementById('play').textContent = d.playing ? '⏸' : '▶';
+                var cur = Number(d.time) || 0;
+                var dur = Number(d.duration) || 0;
+                duration = dur;
+                if (dur > 0) {
+                    document.getElementById('time').textContent = fmt(cur) + ' / ' + fmt(dur);
+                    document.getElementById('fill').style.width = Math.min(100, cur / dur * 100) + '%';
+                } else {
+                    document.getElementById('time').textContent = fmt(cur);
+                }
+                var c = d.cover || '';
+                if (c && last.cover !== c) {
+                    last.cover = c;
+                    document.getElementById('cover').innerHTML =
+                        '<img src="' + esc(c) + '" alt="" onerror="this.parentNode.textContent=\'♪\'">';
+                }
+                if (d.mode) {
+                    document.getElementById('mode').textContent = MODE_ICON[d.mode] || '⟳';
+                    document.getElementById('mode').title = MODE_LABEL[d.mode] || '播放模式';
+                }
+                if (d.favorite !== undefined) {
+                    var fav = document.getElementById('fav');
+                    fav.textContent = d.favorite ? '♥' : '♡';
+                    fav.classList.toggle('on', !!d.favorite);
+                }
+                if (d.volume !== undefined) {
+                    document.getElementById('volfill').style.width = Math.round(Number(d.volume) * 100) + '%';
+                }
+            })
+            .catch(function () {});
+    }
+
+    function refreshFromHost() {
+        // 清掉本地缓存，强制重绘标题/封面/进度，并对齐主程序当前状态
+        last = { title: '', cover: '', mode: '', favorite: null };
+        var btn = document.getElementById('refresh');
+        btn.classList.add('on');
+        setTimeout(function () { btn.classList.remove('on'); }, 600);
+        poll();
+        setTimeout(poll, 250);
+    }
+
+    document.getElementById('refresh').onclick = refreshFromHost;
+
+    document.getElementById('play').onclick = function () { send('toggle'); };
+    document.getElementById('prev').onclick = function () { send('prev'); };
+    document.getElementById('next').onclick = function () { send('next'); };
+    document.getElementById('mode').onclick = function () { send('mode'); };
+    document.getElementById('fav').onclick = function () { send('fav'); };
+
+    document.getElementById('progress').onclick = function (e) {
+        var r = this.getBoundingClientRect();
+        var ratio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+        if (duration > 0) send('seek', ratio * duration);
+    };
+    document.getElementById('vol').onclick = function (e) {
+        var r = this.getBoundingClientRect();
+        var ratio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+        document.getElementById('volfill').style.width = (ratio * 100) + '%';
+        send('volume', ratio);
+    };
+
+    try {
+        if (localStorage.getItem('darkMode') === 'true') document.documentElement.classList.add('dark');
+    } catch (e) {}
+
+    poll();
+    setInterval(poll, 900);
+})();
+</script>
+</body>
+</html>

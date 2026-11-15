@@ -1,0 +1,10 @@
+name: edu
+author: ZhiYan
+desc: AI 教辅命令，支持 /题库、/查题、/解题、/导入课件、/组卷、/错题本、/推题、/复习
+short_desc: AI 教辅（题库 / 组卷 / 错题本）
+version: 1.0.0
+repo: ""
+support_platforms:
+  - webchat
+  - qq
+astrbot_version: ">=4.16,<5"
