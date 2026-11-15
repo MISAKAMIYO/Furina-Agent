@@ -8,8 +8,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="hljs-theme">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="/static/vendor/katex/katex.min.css?v=20261115katex">
     <script src="/static/js/qrcode.min.js?v=20261114kg6"></script>
     <!-- Monaco Editor -->
+    <script src="/static/vendor/katex/katex.min.js?v=20261115katex"></script>
+    <script src="/static/vendor/katex/auto-render.min.js?v=20261115katex"></script>
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
     <!-- 桌面桥接（桌面模式下自动激活） -->
     <script src="/static/js/desktop-bridge.js"></script>
@@ -5172,7 +5175,8 @@
         </div>
     </div>
 
-    <script src="/static/js/app.js?v=20261114kg6"></script>
+    <script src="/static/vendor/mermaid/mermaid.min.js?v=20261115mmd"></script>
+    <script src="/static/js/app.js?v=20261115rich"></script>
 
     <!-- 通用对话框 -->
     <div class="dialog-overlay" id="dialog-overlay" onclick="closeDialog(event)">

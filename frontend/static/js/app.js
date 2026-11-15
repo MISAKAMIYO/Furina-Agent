@@ -924,6 +924,10 @@ function toggleDarkMode() {
     }
     // 浅色/深色各存一份文字颜色，切换后立刻套用
     if (typeof _applyFontColors === 'function') _applyFontColors();
+    // Mermaid 图表跟随主题重绘
+    if (typeof _refreshMermaidBlocks === 'function') {
+        try { _refreshMermaidBlocks(); } catch (e) { console.warn(e); }
+    }
 }
 
 // ============= 字体颜色自定义（浅色 / 深色各存一份） =============
@@ -1338,6 +1342,106 @@ function renderCodeBlock(code, language) {
     `;
 }
 
+// ===== 富内容增强：KaTeX 公式 + Mermaid 图表 =====
+var _mermaidInited = false;
+var _mermaidTheme = "";
+
+function _initMermaid(force) {
+    if (typeof mermaid === "undefined") return false;
+    var dark = document.documentElement.classList.contains("dark");
+    var theme = dark ? "dark" : "default";
+    if (_mermaidInited && !force && _mermaidTheme === theme) return true;
+    try {
+        mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: "strict",
+            theme: theme,
+            fontFamily: "inherit",
+            flowchart: { htmlLabels: true, useMaxWidth: true },
+            sequence: { useMaxWidth: true },
+        });
+        _mermaidInited = true;
+        _mermaidTheme = theme;
+        return true;
+    } catch (e) {
+        console.warn("mermaid 初始化失败", e);
+        return false;
+    }
+}
+
+/**
+ * 把消息内容里的公式与 Mermaid 代码块渲染成图形。
+ * 在「消息最终定稿」后调用（流式过程中不调用，避免重复渲染）。
+ */
+function enhanceRichContent(root) {
+    if (!root) return;
+
+    // 1) Mermaid：把 ```mermaid 代码块替换成图表容器
+    try {
+        var codes = root.querySelectorAll("code.language-mermaid");
+        if (codes.length && _initMermaid(false)) {
+            var nodes = [];
+            codes.forEach(function (code) {
+                var text = (code.textContent || "").trim();
+                if (!text) return;
+                var wrapper = code.closest(".code-block-wrapper") || code.closest("pre") || code;
+                var box = document.createElement("div");
+                box.className = "mermaid-block";
+                var inner = document.createElement("div");
+                inner.className = "mermaid";
+                inner.textContent = text;
+                box.appendChild(inner);
+                if (wrapper.parentNode) wrapper.parentNode.replaceChild(box, wrapper);
+                nodes.push(inner);
+            });
+            if (nodes.length) {
+                Promise.resolve(mermaid.run({ nodes: nodes, suppressErrors: true })).catch(function (e) {
+                    console.warn("mermaid 渲染失败", e);
+                });
+            }
+        }
+    } catch (e) {
+        console.warn("mermaid 处理异常", e);
+    }
+
+    // 2) KaTeX：正文里的 $...$ / $$...$$ / \(...\) / \[...\]
+    try {
+        if (typeof renderMathInElement === "function") {
+            renderMathInElement(root, {
+                delimiters: [
+                    { left: "$$", right: "$$", display: true },
+                    { left: "\\[", right: "\\]", display: true },
+                    { left: "\\(", right: "\\)", display: false },
+                    { left: "$", right: "$", display: false },
+                ],
+                throwOnError: false,
+                ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code"],
+                ignoredClasses: ["katex", "code-block-wrapper", "mermaid-block"],
+            });
+        }
+    } catch (e) {
+        console.warn("KaTeX 渲染异常", e);
+    }
+}
+
+/** 主题切换后重绘现有图表 */
+function _refreshMermaidBlocks() {
+    if (typeof mermaid === "undefined" || !_mermaidInited) return;
+    _initMermaid(true);
+    var blocks = document.querySelectorAll(".mermaid-block .mermaid");
+    if (!blocks.length) return;
+    blocks.forEach(function (el) {
+        if (!el.dataset.src) el.dataset.src = el.textContent || "";
+    });
+    blocks.forEach(function (el) {
+        el.removeAttribute("data-processed");
+        el.innerHTML = "";
+        el.textContent = el.dataset.src;
+    });
+    Promise.resolve(mermaid.run({ nodes: Array.prototype.slice.call(blocks), suppressErrors: true }))
+        .catch(function () {});
+}
+
 // 复制代码块内容
 function copyCodeBlock(btn) {
     const wrapper = btn.closest('.code-block-wrapper');
@@ -1493,6 +1597,13 @@ function renderMarkdown(text) {
     // 0. 提取本地文件引用（绝对路径）→ 占位符，渲染末尾恢复为可点击文件卡片
     const fileRefs = [];
     text = _extractFileRefs(text, fileRefs);
+
+    // 0.5 先把 ``` 代码块抽出来（用原始文本渲染），避免后续转义/换行处理破坏代码
+    const _codeBlocks = [];
+    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, function (m, lang, code) {
+        _codeBlocks.push({ lang: lang || '', code: code });
+        return '\x00CODEBLOCK' + (_codeBlocks.length - 1) + '\x00';
+    });
     
     // 1. 提取折叠标记 ([fold=title]content[/fold])，转换为占位符
     const folds = [];
@@ -1561,13 +1672,19 @@ function renderMarkdown(text) {
         </div>`;
     });
     
-    // 代码块（``` ... ```）— 带语法高亮、行号、复制按钮
-    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
-        return renderCodeBlock(code.trim(), lang);
-    });
-    
     // 行内代码（`...`）
     html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+
+    // 显示公式（$$...$$ / \[...\]），代码块已提前抽出，不会被误判
+    const _mathBlocks = [];
+    html = html.replace(/\$\$([\s\S]+?)\$\$/g, function (m, tex) {
+        _mathBlocks.push(tex);
+        return '\x00MATH' + (_mathBlocks.length - 1) + '\x00';
+    });
+    html = html.replace(/\\\[([\s\S]+?)\\\]/g, function (m, tex) {
+        _mathBlocks.push(tex);
+        return '\x00MATH' + (_mathBlocks.length - 1) + '\x00';
+    });
     
     // 链接（[文本](url)）— 绝对 http(s) 直接可用，相对路径补全站点地址（供插件下发本地文件下载/浏览链接）
     html = html.replace(/\[([^\[\]]+?)\]\(((?:https?:\/\/|\/)[^)\s]*?)\)/g, function(match, text, url) {
@@ -1601,11 +1718,33 @@ function renderMarkdown(text) {
         html = html.split('\x00FOLD' + i + '\x00').join(folds[i]);
     }
     
+    // 恢复代码块（原始文本 → 语法高亮渲染）
+    for (let i = 0; i < _codeBlocks.length; i++) {
+        const item = _codeBlocks[i];
+        html = html.split('\x00CODEBLOCK' + i + '\x00').join(renderCodeBlock(item.code.trim(), item.lang));
+    }
+
     // 恢复文件引用占位符 → 可点击文件卡片
     for (let i = 0; i < fileRefs.length; i++) {
         html = html.split('\x00FILEREF' + i + '\x00').join(_fileRefChip(fileRefs[i]));
     }
-    
+
+    // 还原显示公式：有 KaTeX 就直接渲染，没有则退回等宽源码
+    for (let i = 0; i < _mathBlocks.length; i++) {
+        const tex = _mathBlocks[i];
+        let out;
+        if (typeof katex !== 'undefined') {
+            try {
+                out = '<div class="math-display">' + katex.renderToString(tex, { displayMode: true, throwOnError: false }) + '</div>';
+            } catch (e) {
+                out = '<pre class="math-src">' + tex.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</pre>';
+            }
+        } else {
+            out = '<pre class="math-src">' + tex.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</pre>';
+        }
+        html = html.split('\x00MATH' + i + '\x00').join(out);
+    }
+
     return html;
 }
 
@@ -4054,6 +4193,8 @@ function _processAgentEvent(eventType, data) {
             stream.actionsEl.style.display = '';
             _stopThinkTimer(stream);
             _hideApprovalDock();
+            // 定稿后渲染公式与图表（流式过程中不渲染，避免反复重排）
+            try { enhanceRichContent(stream.contentEl); } catch (e) { console.warn(e); }
             _currentAgentStream = null;
             _flushPendingQueue();
             break;
@@ -5055,6 +5196,7 @@ function appendAgentChunk(data) {
 function finalizeAgentMessage(data) {
     if (_currentAgentMessage && _currentAgentMessage.element) {
         const contentEl = _currentAgentMessage.element.querySelector('.message-content');
+        try { enhanceRichContent(contentEl); } catch (e) { console.warn(e); }
         if (contentEl) {
             contentEl.classList.remove('typing');
             // 最终检查：纯文本模式但全文实际包含 Markdown
@@ -18423,6 +18565,9 @@ function addMessage(message) {
     }
     
     // 右键 / 长按唤出气泡操作菜单（复制、引用回复、转发、删除）
+    // 历史消息里的公式/图表
+    try { enhanceRichContent(messageDiv); } catch (e) { console.warn(e); }
+
     messageDiv.addEventListener('contextmenu', function (e) {
         e.preventDefault();
         showMessageContextMenu(e, this);

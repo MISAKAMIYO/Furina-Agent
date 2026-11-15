@@ -26740,3 +26740,27 @@ html.dark .dsh-reasoning-row.history {
 }
 .bgi-elev-banner i { color: var(--warning, #E0A020); }
 .bgi-elev-text { flex: 1; min-width: 0; }
+
+/* KaTeX 公式与 Mermaid 图表 */
+.message-content .katex { font-size: 1.05em; }
+.message-content .katex-display {
+    margin: 10px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 0;
+}
+.mermaid-block {
+    margin: 10px 0;
+    padding: 12px;
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    background: var(--surface-2);
+    overflow-x: auto;
+    text-align: center;
+}
+.mermaid-block svg { max-width: 100%; height: auto; }
+.mermaid-block .mermaid { display: inline-block; }
+.mermaid-block.mermaid-error {
+    color: var(--ink-3);
+    font-size: 12.5px;
+}

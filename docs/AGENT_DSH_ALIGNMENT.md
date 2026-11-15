@@ -793,6 +793,32 @@ ERROR: Hidden import 'pywinauto' not found
 
 用法不变：`build.bat` / `python tools/build.py`；想要精简输出加 `--quiet`。
 
+
+## 第 40 轮：借鉴 deepseek-ai/chat-demo 增强富内容渲染（2026-11-15）
+
+调研：官方把网页端 1:1 复刻开源了（[deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo)，MIT，React 18 + Zustand + Rspack）。
+其功能清单里最值得抄的是「公式 / 图表 / 引用角标 / 语音输入 / 分支切换」，本轮先做**公式 + 图表**。
+
+### 1. 依赖本地化（离线可用）
+- `frontend/static/vendor/katex/`：katex.min.js（275KB）、katex.min.css、auto-render.min.js、20 个 woff2 字体（约 296KB）。
+- `frontend/static/vendor/mermaid/mermaid.min.js`（2.5MB，11.4.1）。
+- **坑**：KaTeX 是 UMD 包，若页面已存在 AMD `define`（Monaco loader），它会注册成 AMD 模块而不挂 `window.katex`；
+  解决：把 KaTeX 的 `<script>` 放到 monaco loader **之前**加载。
+
+### 2. 渲染实现
+- 新增 `enhanceRichContent(root)`：Mermaid 代码块 → `.mermaid-block` 容器并 `mermaid.run()`；正文公式交给 `renderMathInElement`（跳过 pre/code）。
+- 调用点：流式 `done`、历史消息 `addMessage`、`finalizeAgentMessage`（流式过程中不渲染，避免反复重排）。
+- 主题切换 `toggleDarkMode` → `_refreshMermaidBlocks()` 按明暗主题重绘图表。
+- `renderMarkdown` 支持显示公式 `$$...$$` / `\[...\]`：抽出为占位符 → 末尾用 `katex.renderToString(displayMode)` 还原。
+
+### 3. 顺手修掉的旧 bug
+代码块原来在「整体 HTML 转义」之后才渲染 → 代码里的 `<`、`&`、`>` 会被二次转义（显示成 `&gt;`），
+且后续 `\n → <br>` 会破坏代码块内容（Mermaid 图形因此报 Syntax error）。
+改为**在渲染最开始就把 ``` 代码块抽成占位符**，最后用原始文本 `renderCodeBlock()` 还原。
+
+验证：同一条消息里同时含行内公式、显示公式、python 代码块（含 `<`、`&`、`$$`）、mermaid 流程图 →
+KaTeX 2 个节点 / display 1 个 / mermaid SVG 1 个，代码文本完整未变形，无 pageerror。
+
 ## 仍然留着的打磨项（不阻塞目标）
 
 1. 计划条从 Composer 上方移进消息流（现在是顶部 dock，功能完整）。
