@@ -14,6 +14,7 @@
 ## 目录
 
 - [功能特性](#功能特性)
+- [界面预览](#界面预览)
 - [环境要求](#环境要求)
 - [快速开始](#快速开始)
 - [配置说明](#配置说明)
@@ -57,6 +58,30 @@
 - 前端为原生 JS 单页，无构建链依赖
 
 ---
+
+## 界面预览
+
+> 截图来自实际运行（Windows 桌面壳，水蓝玻璃主题）。
+
+| 主界面 · 对话 | 挂件桌面（功能菜单） |
+| --- | --- |
+| ![主界面](docs/screenshots/01-home.jpg) | ![挂件桌面](docs/screenshots/02-widget-menu.jpg) |
+
+| Agent 工具面板 | DSH 内核管理 |
+| --- | --- |
+| ![Agent 工具](docs/screenshots/04-agent-tools.jpg) | ![DSH](docs/screenshots/05-dsh.jpg) |
+
+| 音乐播放器（本地 / 网易云 / 酷狗 / QQ） | BetterGI 原神托管 |
+| --- | --- |
+| ![音乐播放器](docs/screenshots/07-music-player.jpg) | ![BetterGI](docs/screenshots/06-bettergi.jpg) |
+
+| 语音合成（TTS） | 扩展中心 |
+| --- | --- |
+| ![语音合成](docs/screenshots/08-tts.jpg) | ![扩展中心](docs/screenshots/09-extensions.jpg) |
+
+| 右上角功能菜单（会话/模型/工具入口） | |
+| --- | --- |
+| ![右上角菜单](docs/screenshots/03-top-menu.jpg) | |
 
 ## 环境要求
 
