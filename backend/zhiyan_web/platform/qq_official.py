@@ -39,11 +39,18 @@ _DEFAULT = {
     "command_prefix": "bgi",
     "command_allowed_groups": [],   # 留空=不限制
     "command_allowed_users": [],    # 留空=不限制
+    "auto_bind_target": True,       # 收到入站消息后自动记录并持久化 openid
 }
 
 _token_cache: Dict[str, Any] = {"token": "", "expires_at": 0.0}
 _msg_cache: Dict[str, Dict[str, str]] = {"group": {}, "user": {}}
 _msg_seq: Dict[str, int] = {}
+# msg_id 被动回复有效窗口（秒）；超时后改为尝试主动消息
+_msg_ts: Dict[str, Dict[str, float]] = {"group": {}, "user": {}}
+# 最近一次入站消息的会话标识：没有显式配置目标时，通知就回到这里
+_last_inbound: Dict[str, Dict[str, Any]] = {"group": {}, "user": {}}
+
+REPLY_WINDOW = 240
 
 
 def _cfg() -> Dict[str, Any]:
@@ -71,6 +78,7 @@ def _decrypt_secret(value: str) -> str:
 
 def get_config(mask: bool = True) -> Dict[str, Any]:
     cfg = _cfg()
+    cfg["has_secret"] = bool(_decrypt_secret(cfg.get("app_secret")))
     if mask and cfg.get("app_secret"):
         cfg["app_secret"] = "****"
     return cfg
@@ -95,9 +103,23 @@ def update_config(patch: Dict[str, Any]) -> Dict[str, Any]:
     return get_config(mask=True)
 
 
-def configured() -> bool:
+def credentials_ok() -> bool:
+    """只检查 AppID / AppSecret（接收与自动学习目标只需要凭据）"""
     cfg = _cfg()
-    return bool(cfg.get("app_id") and _decrypt_secret(cfg.get("app_secret")) and cfg.get("target_id"))
+    return bool(cfg.get("app_id") and _decrypt_secret(cfg.get("app_secret")))
+
+
+def configured() -> bool:
+    """是否具备运行条件：有凭据即可，发送目标可以后续自动学习"""
+    return credentials_ok()
+
+
+def _looks_like_openid(value: str) -> bool:
+    """openid 是大小写字母/数字组成的串；纯数字一般是 QQ 号，不能直接发"""
+    value = str(value or "").strip()
+    if not value:
+        return False
+    return not value.isdigit()
 
 
 async def _get_token() -> Dict[str, Any]:
@@ -135,6 +157,45 @@ def _resolve_target(cfg: Dict[str, Any]) -> tuple:
     return ttype, tid
 
 
+def _resolve_send_target(ttype: str, tid: str) -> tuple:
+    """确定真正发往哪个 openid。
+
+    优先使用显式配置的 openid；如果没配、或配的是纯数字 QQ 号（官方 API 不认），
+    就回退到最近一次入站消息的会话（自动学习）；当前类型没收到过消息时，
+    再退到另一类型（只把机器人拉进群、没私聊过的情况也能发）。
+    返回 (实际类型, openid, 来源)。
+    """
+    tid = str(tid or "").strip()
+    if _looks_like_openid(tid):
+        return ttype, tid, "explicit"
+    if ttype not in ("group", "user"):
+        return ttype, "", "missing"
+    auto = _last_inbound.get(ttype) or {}
+    if auto.get("id"):
+        return ttype, str(auto["id"]), "auto"
+    for other in ("user", "group"):
+        if other == ttype:
+            continue
+        item = _last_inbound.get(other) or {}
+        if item.get("id"):
+            return other, str(item["id"]), "auto"
+    return ttype, "", "missing"
+
+
+def _reply_reference(ttype: str, tid: str, msg_id: str = "") -> str:
+    """返回仍可用的被动回复 msg_id；超过有效窗口就返回空串，改走主动消息。"""
+    rid = str(msg_id or "").strip()
+    ts = _msg_ts.get(ttype, {}).get(tid, 0.0) if rid else 0.0
+    if not rid:
+        rid = str(_msg_cache.get(ttype, {}).get(tid, "") or "")
+        ts = _msg_ts.get(ttype, {}).get(tid, 0.0)
+    if not rid:
+        return ""
+    if ts and time.time() - ts > REPLY_WINDOW:
+        return ""
+    return rid
+
+
 async def send_text(
     text: str,
     target_type: Optional[str] = None,
@@ -145,39 +206,38 @@ async def send_text(
     if not cfg.get("enabled"):
         return {"ok": False, "message": "QQ 官方机器人未启用"}
     ttype = (target_type or cfg.get("target_type") or "group").strip().lower()
-    tid = str(target_id or cfg.get("target_id") or "").strip()
-    if not tid:
-        return {"ok": False, "message": "未配置发送目标"}
+    if ttype not in ("group", "user", "channel"):
+        return {"ok": False, "message": f"不支持的目标类型: {ttype}"}
 
+    ttype, tid, source = _resolve_send_target(ttype, target_id or cfg.get("target_id"))
+    if not tid:
+        return {
+            "ok": False,
+            "message": ("尚未获得 openid：请先让目标 QQ 给机器人发一条消息"
+                        "（群聊里需要 @机器人），收到后会自动记录并用于后续推送"),
+        }
     token_result = await _get_token()
     if not token_result.get("ok"):
         return token_result
     token = token_result["token"]
 
     base = str(cfg.get("api_base") or "https://api.sgroup.qq.com").rstrip("/")
+    reply_id = _reply_reference(ttype, tid, msg_id)
     if ttype == "group":
         url = f"{base}/v2/groups/{tid}/messages"
         payload: Dict[str, Any] = {"content": text, "msg_type": 0}
-        reply_id = msg_id or _msg_cache["group"].get(tid, "")
-        if reply_id:
-            payload["msg_id"] = reply_id
-            _msg_seq[reply_id] = _msg_seq.get(reply_id, 0) + 1
-            payload["msg_seq"] = _msg_seq[reply_id]
     elif ttype == "user":
         url = f"{base}/v2/users/{tid}/messages"
         payload = {"content": text, "msg_type": 0}
-        reply_id = msg_id or _msg_cache["user"].get(tid, "")
-        if reply_id:
-            payload["msg_id"] = reply_id
-            _msg_seq[reply_id] = _msg_seq.get(reply_id, 0) + 1
-            payload["msg_seq"] = _msg_seq[reply_id]
-    elif ttype == "channel":
+    else:
         url = f"{base}/channels/{tid}/messages"
         payload = {"content": text}
-        if msg_id:
-            payload["msg_id"] = msg_id
-    else:
-        return {"ok": False, "message": f"不支持的目标类型: {ttype}"}
+        reply_id = msg_id or ""
+
+    if reply_id:
+        payload["msg_id"] = reply_id
+        _msg_seq[reply_id] = _msg_seq.get(reply_id, 0) + 1
+        payload["msg_seq"] = _msg_seq[reply_id]
 
     headers = {"Authorization": f"QQBot {token}", "Content-Type": "application/json"}
     try:
@@ -189,11 +249,19 @@ async def send_text(
 
     if resp.status_code not in (200, 201, 204):
         hint = ""
-        if ttype in ("group", "user") and not msg_id:
-            hint = "（群/C2C 主动消息通常需要 msg_id，需先收到一条入站消息）"
+        if ttype in ("group", "user") and not reply_id:
+            hint = ("（当前按主动消息发送；若被拒可让目标先给机器人发一条消息，"
+                    "或确认机器人有主动消息配额）")
         return {"ok": False, "message": f"发送失败: HTTP {resp.status_code} {body}{hint}"}
-    logger.info(f"[QQ官方] 已发送到 {ttype}:{tid}")
-    return {"ok": True, "message": "已发送", "target_type": ttype, "target_id": tid}
+    logger.info(f"[QQ官方] 已发送到 {ttype}:{tid}（{source}）")
+    return {
+        "ok": True,
+        "message": "已发送",
+        "target_type": ttype,
+        "target_id": tid,
+        "target_source": source,
+        "passive_reply": bool(reply_id),
+    }
 
 
 async def send_image(
@@ -215,9 +283,9 @@ async def send_image(
     if not image_path or not os.path.isfile(image_path):
         return {"ok": False, "message": f"图片不存在: {image_path}"}
     ttype = (target_type or cfg.get("target_type") or "group").strip().lower()
-    tid = str(target_id or cfg.get("target_id") or "").strip()
+    ttype, tid, source = _resolve_send_target(ttype, target_id or cfg.get("target_id"))
     if not tid:
-        return {"ok": False, "message": "未配置发送目标"}
+        return {"ok": False, "message": "尚未获得 openid：请先让目标 QQ 给机器人发一条消息"}
     if ttype not in ("group", "user"):
         return {"ok": False, "message": f"目标类型 {ttype} 暂不支持本地图片，请改用频道文本或 NapCat"}
 
@@ -261,7 +329,7 @@ async def send_image(
                 "msg_type": 7,
                 "media": {"file_info": file_info},
             }
-            reply_id = msg_id or _msg_cache.get("group" if ttype == "group" else "user", {}).get(tid, "")
+            reply_id = _reply_reference(ttype, tid, msg_id)
             if reply_id:
                 message["msg_id"] = reply_id
                 _msg_seq[reply_id] = _msg_seq.get(reply_id, 0) + 1
@@ -299,13 +367,14 @@ async def validate_config() -> Dict[str, Any]:
     if not cfg.get("enabled"):
         return {"ok": False, "message": "QQ 官方机器人未启用"}
     if not configured():
-        return {"ok": False, "message": "缺少 AppID / AppSecret / 发送目标"}
+        return {"ok": False, "message": "缺少 AppID / AppSecret"}
     result = await _get_token()
     if result.get("ok"):
         return {
             "ok": True,
             "message": "校验通过，token 已获取",
             "expires_at": _token_cache.get("expires_at") or 0,
+            "last_inbound": last_inbound(),
         }
     return {"ok": False, "message": result.get("message") or "无法获取 token"}
 
@@ -325,6 +394,7 @@ async def status() -> Dict[str, Any]:
     return {
         "enabled": bool(cfg.get("enabled")),
         "configured": configured(),
+        "has_secret": bool(_decrypt_secret(cfg.get("app_secret"))),
         "target_type": cfg.get("target_type") or "group",
         "target_id": cfg.get("target_id") or "",
         "token_cached": bool(_token_cache.get("token")),
@@ -334,6 +404,8 @@ async def status() -> Dict[str, Any]:
         "ws_connected": get_client().connected,
         "ws_last_error": get_client().last_error,
         "cached_targets": {k: len(v) for k, v in _msg_cache.items()},
+        "last_inbound": last_inbound(),
+        "auto_bind_target": bool(cfg.get("auto_bind_target", True)),
         "last_message": get_client().last_message,
         "command_enabled": bool(cfg.get("command_enabled", True)),
         "command_prefix": cfg.get("command_prefix") or "bgi",
@@ -490,8 +562,24 @@ class QQOfficialClient:
         }
         if item["group_openid"]:
             _msg_cache["group"][item["group_openid"]] = msg_id
+            _msg_ts["group"][item["group_openid"]] = item["ts"]
+            _last_inbound["group"] = {
+                "id": item["group_openid"],
+                "msg_id": msg_id,
+                "ts": item["ts"],
+                "event": event,
+            }
+            auto_bind_target("group", item["group_openid"])
         if item["user_openid"]:
             _msg_cache["user"][item["user_openid"]] = msg_id
+            _msg_ts["user"][item["user_openid"]] = item["ts"]
+            _last_inbound["user"] = {
+                "id": item["user_openid"],
+                "msg_id": msg_id,
+                "ts": item["ts"],
+                "event": event,
+            }
+            auto_bind_target("user", item["user_openid"])
         self.last_message = item
         self.messages.append(item)
         logger.info(f"[QQ官方] 收到消息 {event}: {content[:60]!r}")
@@ -658,3 +746,77 @@ def get_client() -> QQOfficialClient:
 
 def recent_messages(limit: int = 20) -> list:
     return list(get_client().messages)[-limit:][::-1]
+
+
+def last_inbound() -> Dict[str, Any]:
+    """最近一次入站会话（group/user 各一份），供状态展示与目标排查。"""
+    result: Dict[str, Any] = {}
+    for kind, item in _last_inbound.items():
+        if not item:
+            continue
+        result[kind] = {
+            "id": item.get("id") or "",
+            "msg_id": item.get("msg_id") or "",
+            "age_sec": round(max(0.0, time.time() - float(item.get("ts") or 0)), 1),
+        }
+    return result
+
+
+def auto_bind_target(ttype: str, tid: str, force: bool = False) -> bool:
+    """把学到的 openid 写进配置，重启后仍可直接发送。
+
+    - 默认不抢用户手工设置的固定目标（非 force 且已有 openid 时跳过）；
+    - 没配置目标、或配置的是纯数字 QQ 号时自动接管。
+    """
+    ttype = str(ttype or "").strip().lower()
+    tid = str(tid or "").strip()
+    if ttype not in ("group", "user") or not tid:
+        return False
+    cfg = _cfg()
+    if not cfg.get("auto_bind_target", True) and not force:
+        return False
+    cur_id = str(cfg.get("target_id") or "").strip()
+    cur_type = str(cfg.get("target_type") or "group").strip().lower()
+    if not force and _looks_like_openid(cur_id) and cur_id != tid:
+        return False
+    if cur_id == tid and cur_type == ttype:
+        return False
+    try:
+        from zhiyan_web.config import update_settings
+
+        update_settings({"qq_official": {"target_type": ttype, "target_id": tid}})
+    except Exception as e:
+        logger.warning(f"[QQ官方] 自动保存 openid 失败: {e}")
+        return False
+    logger.info(f"[QQ官方] 已自动绑定发送目标 {ttype}:{tid}")
+    return True
+
+
+def auto_detect_target(force: bool = True) -> Dict[str, Any]:
+    """根据最近一次入站会话确定发送目标，并按需写入配置。"""
+    cfg = _cfg()
+    pref = str(cfg.get("target_type") or "group").strip().lower()
+    candidates = []
+    for kind in ("user", "group"):
+        item = _last_inbound.get(kind) or {}
+        if item.get("id"):
+            candidates.append((float(item.get("ts") or 0), kind, item))
+    if not candidates:
+        return {
+            "ok": False,
+            "message": "还没有收到任何入站消息：先给机器人发一句（群聊需 @机器人）",
+            "last_inbound": last_inbound(),
+        }
+    candidates.sort(reverse=True)
+    chosen = next((c for c in candidates if c[1] == pref), candidates[0])
+    _, kind, item = chosen
+    persisted = auto_bind_target(kind, str(item["id"]), force=force)
+    return {
+        "ok": True,
+        "target_type": kind,
+        "target_id": str(item["id"]),
+        "msg_id": str(item.get("msg_id") or ""),
+        "age_sec": round(max(0.0, time.time() - float(item.get("ts") or 0)), 1),
+        "persisted": persisted,
+        "message": f"已获取 openid（{kind}）",
+    }

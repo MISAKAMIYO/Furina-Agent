@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/qq-official", tags=["qq-official"])
 _ALLOWED_KEYS = {
     "enabled", "app_id", "app_secret", "target_type", "target_id", "api_base", "timeout",
     "ws_enabled", "intents", "command_enabled", "command_prefix",
-    "command_allowed_groups", "command_allowed_users",
+    "command_allowed_groups", "command_allowed_users", "auto_bind_target",
 }
 
 
@@ -34,13 +34,20 @@ async def qq_official_get_config():
 async def qq_official_update_config(payload: Dict[str, Any]):
     """更新配置（只接受白名单字段）；涉及凭据时顺带校验一次 token"""
     patch = {k: v for k, v in (payload or {}).items() if k in _ALLOWED_KEYS}
+    secret_saved = bool(str(patch.get("app_secret") or "").strip())
     config = qq_official.update_config(patch)
-    result: Dict[str, Any] = {"status": "success", "message": "配置已保存", "config": config}
+    result: Dict[str, Any] = {
+        "status": "success",
+        "message": "AppSecret 已加密保存" if secret_saved else "配置已保存",
+        "secret_saved": secret_saved,
+        "config": config,
+    }
     if any(k in patch for k in ("app_id", "app_secret", "target_id", "target_type", "enabled")):
         validate = await qq_official.validate_config()
         result["validate"] = validate
         if not validate.get("ok"):
-            result["message"] = "配置已保存，但校验未通过：" + (validate.get("message") or "")
+            prefix = "AppSecret 已加密保存，但" if secret_saved else "配置已保存，但"
+            result["message"] = prefix + "校验未通过：" + (validate.get("message") or "未知原因")
     return result
 
 
@@ -90,6 +97,17 @@ async def qq_official_ws_stop():
     """停止 WebSocket 接收客户端"""
     result = await qq_official.get_client().stop()
     return {"status": "success" if result.get("ok") else "error", "message": result.get("message", ""), "data": await qq_official.status()}
+
+
+@router.post("/auto-target")
+async def qq_official_auto_target():
+    """从最近一次入站消息自动获取 openid 并写入配置（无需手动填写目标 ID）"""
+    data = qq_official.auto_detect_target(force=True)
+    return {
+        "status": "success" if data.get("ok") else "error",
+        "message": data.get("message", ""),
+        "data": data,
+    }
 
 
 @router.get("/messages")
