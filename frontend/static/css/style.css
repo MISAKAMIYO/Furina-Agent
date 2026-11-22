@@ -26845,3 +26845,432 @@ html.dark .dsh-reasoning-row.history {
 }
 .msg-cite:hover { background: var(--accent); color: #fff; }
 .msg-source.flash { background: var(--accent-tint); }
+
+
+/* ════════════════════════════════════════════
+   BetterGI 页重做（2026-11-22）
+   Hero 状态台 + 页签 + 统一面板；只使用语义令牌
+   ════════════════════════════════════════════ */
+#bettergi-view {
+    display: block;
+    padding: 0 24px 40px;
+}
+
+#bettergi-view > * {
+    flex: none;
+    min-height: 0;
+}
+
+#bettergi-view .bgi-page-header {
+    margin-bottom: 14px;
+    align-items: center;
+}
+
+#bettergi-view .bgi-page-header {
+    justify-content: space-between;
+}
+
+#bettergi-view .bgi-page-title {
+    min-width: 0;
+}
+
+#bettergi-view .bgi-page-header .view-actions {
+    width: auto;
+    margin-left: auto;
+}
+
+#bettergi-view .bgi-page-title h2 {
+    margin: 0;
+}
+
+#bettergi-view .bgi-page-sub {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--ink-3);
+    letter-spacing: 0.2px;
+}
+
+/* ── Hero ── */
+#bettergi-view .bgi-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 16px 18px 14px;
+    border-radius: var(--ui-radius-lg, 16px);
+    border: 1px solid var(--ui-card-border, var(--glass-border-light));
+    background:
+        radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+        linear-gradient(135deg, color-mix(in srgb, var(--surface) 88%, transparent), var(--ui-card-bg, var(--glass-bg-light)));
+    box-shadow: var(--ui-card-shadow, var(--shadow-1));
+}
+
+#bettergi-view .bgi-hero-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+#bettergi-view .bgi-hero-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#bettergi-view .bgi-master-state {
+    font-size: 12px;
+    color: var(--ink-3);
+}
+
+#bettergi-view .bgi-pill {
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: var(--ink-2);
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+}
+
+#bettergi-view .bgi-pill.ok {
+    color: var(--success);
+    background: color-mix(in srgb, var(--success) 13%, transparent);
+    border-color: color-mix(in srgb, var(--success) 32%, transparent);
+}
+
+#bettergi-view .bgi-pill.run {
+    color: var(--accent-press);
+    background: var(--accent-tint);
+    border-color: var(--accent-ring);
+}
+
+#bettergi-view .bgi-pill.warn {
+    color: var(--warning);
+    background: color-mix(in srgb, var(--warning) 14%, transparent);
+    border-color: color-mix(in srgb, var(--warning) 32%, transparent);
+}
+
+#bettergi-view .bgi-pill.bad {
+    color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+}
+
+#bettergi-view .bgi-pill.off,
+#bettergi-view .bgi-pill.idle {
+    color: var(--ink-3);
+}
+
+#bettergi-view .bgi-status-card {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--hairline);
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+
+#bettergi-view .bgi-skeleton {
+    color: var(--ink-3);
+    font-size: 12.5px;
+}
+
+#bettergi-view .bgi-state-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+#bettergi-view .bgi-state-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex: none;
+    background: var(--ink-3);
+}
+
+#bettergi-view .bgi-state-dot.ok {
+    background: var(--success);
+    animation: bgiPulseOk 1.8s ease-out infinite;
+}
+
+#bettergi-view .bgi-state-dot.run {
+    background: var(--accent);
+    animation: bgiPulseAccent 1.6s ease-out infinite;
+}
+
+#bettergi-view .bgi-state-dot.warn { background: var(--warning); }
+#bettergi-view .bgi-state-dot.bad { background: var(--danger); }
+
+@keyframes bgiPulseOk {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 45%, transparent); }
+    70%, 100% { box-shadow: 0 0 0 7px transparent; }
+}
+
+@keyframes bgiPulseAccent {
+    0% { box-shadow: 0 0 0 0 var(--accent-ring); }
+    70%, 100% { box-shadow: 0 0 0 7px transparent; }
+}
+
+#bettergi-view .bgi-state-label {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    color: var(--ink);
+}
+
+#bettergi-view .bgi-chip {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    color: var(--ink-3);
+    background: var(--surface-2);
+    border: 1px solid var(--hairline);
+}
+
+#bettergi-view .bgi-chip.on {
+    color: var(--accent-press);
+    background: var(--accent-tint);
+    border-color: var(--accent-ring);
+}
+
+#bettergi-view .bgi-kpis {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+    #bettergi-view .bgi-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+    #bettergi-view .bgi-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+#bettergi-view .bgi-kpi {
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--hairline);
+    background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+
+#bettergi-view .bgi-kpi .k {
+    display: block;
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: 0.3px;
+}
+
+#bettergi-view .bgi-kpi .v {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#bettergi-view .bgi-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    border: 1px solid var(--hairline);
+    background: var(--surface-2);
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+}
+
+#bettergi-view .bgi-alert i {
+    margin-top: 2px;
+}
+
+#bettergi-view .bgi-alert.bad {
+    color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 7%, transparent);
+    border-color: color-mix(in srgb, var(--danger) 28%, transparent);
+}
+
+#bettergi-view .bgi-alert.warn {
+    color: var(--warning);
+    background: color-mix(in srgb, var(--warning) 8%, transparent);
+    border-color: color-mix(in srgb, var(--warning) 28%, transparent);
+}
+
+#bettergi-view .bgi-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+#bettergi-view .bgi-quick-actions .btn {
+    min-height: 34px;
+}
+
+/* ── 页签 ── */
+#bettergi-view .bgi-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 16px 0 14px;
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid var(--hairline);
+    background: var(--surface-2);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+#bettergi-view .bgi-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+#bettergi-view .bgi-tab {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 15px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--ink-2);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
+}
+
+#bettergi-view .bgi-tab i {
+    font-size: 12px;
+    opacity: 0.85;
+}
+
+#bettergi-view .bgi-tab:hover {
+    background: var(--accent-tint);
+    color: var(--ink);
+}
+
+#bettergi-view .bgi-tab.active {
+    background: var(--surface);
+    color: var(--accent-press);
+    font-weight: 600;
+    box-shadow: var(--shadow-1);
+}
+
+/* ── 面板与分页 ── */
+#bettergi-view .bgi-panes {
+    position: relative;
+}
+
+#bettergi-view .bgi-pane {
+    display: none;
+}
+
+#bettergi-view .bgi-pane.active {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    animation: bgiPaneIn 0.2s var(--ease-out, ease-out);
+}
+
+@keyframes bgiPaneIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+}
+
+#bettergi-view .settings-section {
+    padding: 16px 18px;
+    border-radius: var(--ui-radius-lg, 16px);
+}
+
+#bettergi-view .settings-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+#bettergi-view .settings-section-title i {
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--accent);
+    background: var(--accent-tint);
+}
+
+#bettergi-view .bgi-panel {
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--hairline);
+    background: color-mix(in srgb, var(--surface-2) 62%, transparent);
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--ink-2);
+}
+
+#bettergi-view .bgi-events-panel {
+    max-height: 320px;
+    overflow: auto;
+    padding: 8px 12px;
+}
+
+#bettergi-view .bgi-event {
+    display: flex;
+    gap: 10px;
+    padding: 5px 2px;
+    border-bottom: 1px dashed var(--hairline);
+    font-size: 12.5px;
+    line-height: 1.6;
+}
+
+#bettergi-view .bgi-event:last-child {
+    border-bottom: 0;
+}
+
+#bettergi-view .bgi-event .t {
+    flex: none;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+}
+
+#bettergi-view .bgi-event .m {
+    color: var(--ink-2);
+    word-break: break-word;
+}
+
+#bettergi-view .bgi-event.warn .m { color: var(--warning); }
+#bettergi-view .bgi-event.bad .m { color: var(--danger); }
+
+#bettergi-view .bgi-empty {
+    padding: 6px 2px;
+    color: var(--ink-3);
+    font-size: 12.5px;
+}
+
+@media (max-width: 720px) {
+    #bettergi-view { padding: 0 14px 32px; }
+    #bettergi-view .bgi-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #bettergi-view .bgi-tab { padding: 0 11px; }
+}

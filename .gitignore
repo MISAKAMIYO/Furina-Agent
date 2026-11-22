@@ -75,3 +75,5 @@ desktop.ini
 /dbg_*.txt
 /dbtest.txt
 /run_built_test.ps1
+# 编辑器/补丁留下的备份
+*.bak-*

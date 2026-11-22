@@ -14925,6 +14925,30 @@ function bgiRestartAsAdmin() {
     }).catch(function () { showToast('提权重启失败', 'error'); });
 }
 
+// ── BetterGI 页签（概览 / 托管 / 通知 / 自动化 / 维护）──
+function bgiTab(name, btn) {
+    const view = document.getElementById('bettergi-view');
+    if (!view) return;
+    view.querySelectorAll('.bgi-pane').forEach(function (p) {
+        p.classList.toggle('active', p.dataset.pane === name);
+    });
+    view.querySelectorAll('.bgi-tab').forEach(function (b) {
+        b.classList.toggle('active', b.dataset.tab === name);
+    });
+    try { sessionStorage.setItem('bettergiTab', name); } catch (e) {}
+    if (name === 'notify') {
+        if (typeof bgiLoadComms === 'function') bgiLoadComms();
+        if (typeof bgiRefreshNotifyLog === 'function') bgiRefreshNotifyLog();
+    }
+    if (btn && btn.blur) btn.blur();
+}
+
+function bgiInitTab() {
+    let name = 'overview';
+    try { name = sessionStorage.getItem('bettergiTab') || 'overview'; } catch (e) {}
+    bgiTab(name, null);
+}
+
 function bgiLoadPage() {
     bgiCheckElevation();
     bgiLoadStatus();
@@ -14938,6 +14962,8 @@ function bgiLoadPage() {
     bgiLoadOfficial();
     bgiLoadUpdateStatus();
     bgiLoadFlowStatus();
+    bgiInitTab();
+    if (typeof bgiLoadComms === 'function') bgiLoadComms();
 }
 
 function bgiLoadStatus() {
@@ -14964,34 +14990,68 @@ function bgiRenderStatus(d) {
     const stateLabel = stateMap[d.state] || (d.state || '未知');
     const taskMap = { idle: '空闲', running: '进行中', done: '已完成', error: '异常', canceled: '已取消' };
     const taskLabel = taskMap[d.task_state] || (d.task_state || '空闲');
-    const color = d.state === 'running' ? '#22c55e'
-        : d.state === 'alert' ? '#ef4444'
-        : d.state === 'monitoring' ? '#3b82f6'
-        : d.state === 'restarting' ? '#f59e0b'
-        : '#9ca3af';
+    const tone = d.state === 'running' ? 'ok'
+        : d.state === 'alert' ? 'bad'
+        : d.state === 'monitoring' ? 'run'
+        : (d.state === 'starting' || d.state === 'restarting') ? 'warn'
+        : d.state === 'stopped' ? 'off' : 'idle';
+
+    const pill = document.getElementById('bgi-head-pill');
+    if (pill) {
+        pill.textContent = stateLabel;
+        pill.className = 'bgi-pill ' + tone;
+    }
+
+    const kpi = function (k, v) {
+        return '<div class="bgi-kpi"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>';
+    };
+    const alerts = [];
+    if (d.shutdown_pending) {
+        alerts.push('<div class="bgi-alert bad"><i class="fas fa-power-off"></i> 自动关机已进入倒计时，可点击「取消关机」。</div>');
+    }
+    if (d.relaunch && d.relaunch.enabled) {
+        alerts.push('<div class="bgi-alert info"><i class="fas fa-rotate-right"></i> 自动续跑：'
+            + (d.relaunch.pending ? '已排队，' + d.relaunch.due_in + ' 秒后启动' : '待命')
+            + ' · 已续跑 ' + (d.relaunch.count || 0) + '/' + (d.relaunch.max || 3) + ' 次</div>');
+    }
+    if (d.errors && d.errors.enabled) {
+        alerts.push('<div class="bgi-alert info"><i class="fas fa-shield-heart"></i> 异常守护：'
+            + (d.errors.mode === 'strict' ? '严格' : '宽松') + '模式 · 连续无响应 '
+            + (d.errors.miss_streak || 0) + '/' + (d.errors.miss_limit || 25) + ' · 今日报错 '
+            + (((d.errors.daily || {}).counts || {}).bgi_error || 0) + '/' + (d.errors.daily_limit || 3) + '</div>');
+    }
+    const lastErrText = (function (v) {
+        if (!v) return '';
+        if (typeof v === 'object') {
+            return v.message || v.error || (Object.keys(v).length ? JSON.stringify(v) : '');
+        }
+        return String(v);
+    })(d.last_error);
+    if (lastErrText) {
+        alerts.push('<div class="bgi-alert bad"><i class="fas fa-triangle-exclamation"></i> 最近错误：'
+            + _bgiEsc(lastErrText) + '</div>');
+    }
+    if (!d.detected_path) {
+        alerts.push('<div class="bgi-alert warn"><i class="fas fa-folder-open"></i> 未检测到 BetterGI.exe，请到「托管」页填写路径或点击「自动检测路径」。</div>');
+    }
 
     card.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};"></span>
-            <b style="font-size:14px;">${_bgiEsc(stateLabel)}</b>
-            <span style="color:#6b7280;font-size:13px;">监控: ${d.monitoring ? '开启' : '关闭'} · 进程: ${d.running ? '存活' : '未运行'}</span>
+        <div class="bgi-state-line">
+            <span class="bgi-state-dot ${tone}"></span>
+            <span class="bgi-state-label">${_bgiEsc(stateLabel)}</span>
+            <span class="bgi-chip ${d.monitoring ? 'on' : ''}">监控 ${d.monitoring ? '开启' : '关闭'}</span>
+            <span class="bgi-chip ${d.running ? 'on' : ''}">进程 ${d.running ? '存活' : '未运行'}</span>
+            <span class="bgi-chip ${d.task_state === 'running' ? 'on' : ''}">任务 ${_bgiEsc(taskLabel)}</span>
         </div>
-        <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:6px;color:#4b5563;">
-            <span>PID: <b>${(d.pids || []).join(', ') || '—'}</b></span>
-            <span>运行时长: <b>${d.uptime ? Math.round(d.uptime / 60) + ' 分钟' : '—'}</b></span>
-            <span>连续重启: <b>${d.restarts || 0} / ${cfg.max_restarts || 0}</b></span>
-            <span>最近可见: <b>${_bgiFmtTime(d.last_seen_at)}</b></span>
+        <div class="bgi-kpis">
+            ${kpi('PID', (d.pids || []).join(', ') || '—')}
+            ${kpi('运行时长', d.uptime ? Math.round(d.uptime / 60) + ' 分钟' : '—')}
+            ${kpi('连续重启', (d.restarts || 0) + ' / ' + (cfg.max_restarts || 0))}
+            ${kpi('最近可见', _bgiFmtTime(d.last_seen_at))}
+            ${kpi('最近事件', _bgiEsc((d.last_event && d.last_event.event) || '—'))}
+            ${kpi('最近结果', _bgiEsc(d.last_task_result || '—'))}
         </div>
-        <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:6px;color:#4b5563;">
-            <span>任务: <b>${_bgiEsc(taskLabel)}</b>${d.task_state === 'running' && d.task_elapsed ? `（${Math.round(d.task_elapsed / 60)} 分钟）` : ''}</span>
-            <span>最近事件: <b>${_bgiEsc((d.last_event && d.last_event.event) || '—')}</b></span>
-            <span>结果: <b>${_bgiEsc(d.last_task_result || '—')}</b></span>
-        </div>
-        ${d.shutdown_pending ? '<div style="margin-top:6px;color:#ef4444;font-size:13px;">自动关机已进入倒计时，可点击「取消关机」。</div>' : ''}
-        ${(d.relaunch && d.relaunch.enabled) ? `<div style="margin-top:6px;color:${d.relaunch.pending ? '#f59e0b' : '#6b7280'};font-size:13px;">自动续跑：${d.relaunch.pending ? '已排队，' + d.relaunch.due_in + ' 秒后启动' : '待命'} · 已续跑 ${d.relaunch.count || 0}/${d.relaunch.max || 3} 次</div>` : ''}
-        ${(d.errors && d.errors.enabled) ? `<div style="margin-top:6px;color:#6b7280;font-size:13px;">异常守护：${d.errors.mode === 'strict' ? '严格' : '宽松'}模式 · 连续无响应 ${d.errors.miss_streak || 0}/${d.errors.miss_limit || 25} · 今日报错 ${((d.errors.daily || {}).counts || {}).bgi_error || 0}/${d.errors.daily_limit || 3}</div>` : ''}
-        ${d.last_error ? `<div style="margin-top:6px;color:#e53e3e;font-size:13px;">最近错误: ${_bgiEsc(typeof d.last_error === 'object' ? (d.last_error.message || d.last_error.error || JSON.stringify(d.last_error)) : d.last_error)}</div>` : ''}
-        ${(d.detected_path ? '' : '<div style="margin-top:6px;color:#f59e0b;font-size:13px;">未检测到 BetterGI.exe，请填写路径或点击「自动检测路径」。</div>')}
+        ${alerts.join('')}
     `;
 
     const enabledEl = document.getElementById('bgi-enabled');
@@ -15013,15 +15073,14 @@ function bgiRenderStatus(d) {
     if (!listEl) return;
     const events = d.events || [];
     if (!events.length) {
-        listEl.innerHTML = '<div style="color:#6b7280;">暂无事件。</div>';
+        listEl.innerHTML = '<div class="bgi-empty">暂无事件。</div>';
         return;
     }
     listEl.innerHTML = events.map(function (e) {
-        const c = e.level === 'error' ? '#ef4444' : (e.level === 'warning' ? '#f59e0b' : '#4b5563');
-        return `<div style="display:flex;gap:10px;">
-            <span style="color:#9ca3af;flex:none;">${_bgiFmtTime(e.ts)}</span>
-            <span style="color:${c};">${_bgiEsc(e.message)}</span>
-        </div>`;
+        const cls = e.level === 'error' ? 'bad' : (e.level === 'warning' ? 'warn' : 'info');
+        return '<div class="bgi-event ' + cls + '">'
+            + '<span class="t">' + _bgiFmtTime(e.ts) + '</span>'
+            + '<span class="m">' + _bgiEsc(e.message) + '</span></div>';
     }).join('');
 }
 
@@ -15129,6 +15188,15 @@ function bgiCollectConfig() {
         notify_qq: document.getElementById('bgi-notify-qq').checked,
         notify_qq_task_events: document.getElementById('bgi-notify-task-events').checked,
         notify_official: document.getElementById('bgi-notify-official').checked,
+        notify_min_level: (document.getElementById('bgi-notify-level') || {}).value || 'info',
+        notify_dedupe_window: (function () { var el = document.getElementById('bgi-notify-dedupe'); var v = el ? Number(el.value) : NaN; return isFinite(v) ? v : 30; })(),
+        notify_quiet_start: (document.getElementById('bgi-notify-quiet-start') || {}).value || '',
+        notify_quiet_end: (document.getElementById('bgi-notify-quiet-end') || {}).value || '',
+        notify_webhook_url: ((document.getElementById('bgi-notify-webhook-url') || {}).value || '').trim(),
+        update_repo: ((document.getElementById('bgi-update-repo') || {}).value || '').trim(),
+        update_check_interval_hours: (function () { var el = document.getElementById('bgi-update-interval'); var v = el ? Number(el.value) : NaN; return isFinite(v) ? v : 6; })(),
+        update_notify: !!(document.getElementById('bgi-update-notify') || {}).checked,
+        update_auto_check: !!(document.getElementById('bgi-update-auto') || {}).checked,
         notify_target: document.getElementById('bgi-notify-target').value.trim(),
         notify_cooldown: num('bgi-notify-cooldown', 300),
         webhook_events: document.getElementById('bgi-webhook-events').value.trim(),
@@ -15174,6 +15242,7 @@ function bgiCollectConfig() {
 }
 
 function bgiSaveConfig() {
+    const hasOfficialForm = !!document.getElementById('bgi-qo-appid');
     fetch('/api/bettergi/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -15181,8 +15250,27 @@ function bgiSaveConfig() {
     })
         .then(function (r) { return r.json(); })
         .then(function (res) {
-            showToast(res.message || '配置已保存', res.status === 'success' ? 'success' : 'error');
-            bgiLoadPage();
+            // 顺手保存官方机器人配置：避免用户在这一页输入了 AppID/AppSecret 却点了总保存，
+            // 结果密钥没写进去（官方区块的保存按钮才是原本的唯一入口）。
+            const official = hasOfficialForm
+                ? _bgiSaveOfficialRequest(true).catch(function () {
+                    return { status: 'error', message: '官方机器人凭据保存失败' };
+                })
+                : Promise.resolve(null);
+            return official.then(function (off) {
+                let msg = res.message || '配置已保存';
+                let ok = res.status === 'success';
+                if (off) {
+                    if (off.secret_saved) msg += '；AppSecret 已加密保存（输入框清空属正常）';
+                    if (off.status === 'error') { msg += '；' + (off.message || '官方机器人保存失败'); ok = false; }
+                    if (off.validate && !off.validate.ok) {
+                        msg += '；' + (off.message || '官方机器人校验未通过');
+                        ok = false;
+                    }
+                }
+                showToast(msg, ok ? 'success' : 'error');
+                bgiLoadPage();
+            });
         })
         .catch(function () { showToast('保存失败，请确认后端已启动', 'error'); });
 }
@@ -15290,6 +15378,197 @@ function bgiRefreshNotify() {
         .catch(function () {});
 }
 
+
+// ============= BetterGI 通讯强化 & 更新检查 =============
+
+function _bgiCommsPayload() {
+    const num = function (id, fallback) {
+        const el = document.getElementById(id);
+        const v = el ? Number(el.value) : NaN;
+        return isFinite(v) ? v : fallback;
+    };
+    const val = function (id) {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    };
+    return {
+        notify_min_level: val('bgi-notify-level') || 'info',
+        notify_dedupe_window: num('bgi-notify-dedupe', 30),
+        notify_quiet_start: (val('bgi-notify-quiet-start') || '').trim(),
+        notify_quiet_end: (val('bgi-notify-quiet-end') || '').trim(),
+        notify_webhook_url: (val('bgi-notify-webhook-url') || '').trim(),
+        update_repo: (val('bgi-update-repo') || '').trim(),
+        update_check_interval_hours: num('bgi-update-interval', 6),
+        update_notify: !!(document.getElementById('bgi-update-notify') || {}).checked,
+        update_auto_check: !!(document.getElementById('bgi-update-auto') || {}).checked
+    };
+}
+
+function bgiSaveComms() {
+    fetch('/api/bettergi/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(_bgiCommsPayload())
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            showToast(res.message || '通讯设置已保存', res.status === 'success' ? 'success' : 'error');
+        })
+        .catch(function () { showToast('保存失败，请确认后端已启动', 'error'); });
+}
+
+function bgiNotifyTest() {
+    const box = document.getElementById('bgi-notify-log');
+    if (box) box.innerHTML = '<div class="form-tips">正在发送测试通知…</div>';
+    fetch('/api/bettergi/notify/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            const d = (res && res.data) || {};
+            const ok = !!d.ok;
+            const parts = [];
+            if (d.sent && d.sent.length) parts.push('已送达：' + d.sent.join('、'));
+            if (d.failed && d.failed.length) parts.push('失败：' + d.failed.join('、'));
+            (d.skipped || []).forEach(function (x) { parts.push('跳过：' + (x.reason || '')); });
+            showToast(ok ? ('测试通知已发送' + (parts.length ? '（' + parts.join('；') + '）' : '')) : ('测试通知未送达' + (parts.length ? '（' + parts.join('；') + '）' : '')), ok ? 'success' : 'error');
+            bgiRefreshNotifyLog();
+        })
+        .catch(function () { showToast('发送失败，请确认后端已启动', 'error'); });
+}
+
+function bgiRefreshNotifyLog() {
+    const box = document.getElementById('bgi-notify-log');
+    fetch('/api/bettergi/notify/log?limit=30')
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            const d = (res && res.data) || {};
+            const stats = d.stats || {};
+            const items = d.items || [];
+            if (!box) return;
+            const head = '渠道：' + ((d.channels || []).join('、') || '未启用')
+                + ' ｜ 成功 ' + (stats.ok || 0) + ' · 失败 ' + (stats.failed || 0)
+                + (stats.quiet_now ? ' ｜ 当前处于静默时段' : '');
+            if (!items.length) {
+                box.innerHTML = '<div class="form-tips">' + head + '<br>暂无投递记录。</div>';
+                return;
+            }
+            const rows = items.slice(0, 12).map(function (it) {
+                const mark = it.ok ? '✓' : '✕';
+                const color = it.ok ? 'var(--success, #16a34a)' : 'var(--danger, #ef4444)';
+                const text = (it.text || '').replace(/[<>&]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]; });
+                return '<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px dashed var(--hairline);">'
+                    + '<span style="color:' + color + ';font-weight:700;">' + mark + '</span>'
+                    + '<span style="opacity:.6;white-space:nowrap;">' + (it.time || '') + '</span>'
+                    + '<span style="opacity:.8;white-space:nowrap;">' + (it.channel || '-') + '</span>'
+                    + '<span style="opacity:.6;white-space:nowrap;">' + (it.level || '') + '</span>'
+                    + '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + text + '</span>'
+                    + (it.error ? '<span style="color:var(--danger,#ef4444);">' + String(it.error).slice(0, 40) + '</span>' : '')
+                    + '</div>';
+            }).join('');
+            box.innerHTML = '<div class="form-tips" style="margin-bottom:6px;">' + head + '</div>' + rows;
+        })
+        .catch(function () { if (box) box.innerHTML = '<div class="form-tips">读取日志失败，请确认后端已启动。</div>'; });
+}
+
+function bgiNotifyLogClear() {
+    fetch('/api/bettergi/notify/clear', { method: 'POST' })
+        .then(function () { showToast('投递日志已清空'); bgiRefreshNotifyLog(); })
+        .catch(function () { showToast('清空失败', 'error'); });
+}
+
+function bgiUpdateCheck() {
+    const box = document.getElementById('bgi-update-result');
+    if (box) box.innerHTML = '<div class="form-tips">正在检查最新版本…</div>';
+    fetch('/api/bettergi/update/check')
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            const d = (res && res.data) || {};
+            if (!box) return;
+            if (d.error && !d.remote) {
+                box.innerHTML = '<div class="form-tips">检查失败：' + String(d.error).slice(0, 200) + '</div>';
+                return;
+            }
+            const rel = d.release || {};
+            const state = d.has_update === true ? '有新版本可更新' : (d.has_update === false ? '已是最新' : '本地版本未知');
+            const lines = [
+                '本地：' + (d.local || '未检测到 BetterGI.exe 版本'),
+                '远端：' + (d.remote || '未知') + (rel.tag ? '（' + rel.tag + '）' : ''),
+                '结论：' + state
+            ];
+            let html = '<div class="form-tips">' + lines.join('<br>') + '</div>';
+            if (rel.url) {
+                html += '<div style="margin-top:6px;"><a href="' + rel.url + '" target="_blank" rel="noopener">查看 Release 说明</a></div>';
+            }
+            if (rel.notes) {
+                const esc = String(rel.notes).slice(0, 400).replace(/[<>&]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]; });
+                html += '<pre style="margin-top:8px;max-height:160px;overflow:auto;white-space:pre-wrap;font-size:12px;">' + esc + '</pre>';
+            }
+            box.innerHTML = html;
+        })
+        .catch(function () { if (box) box.innerHTML = '<div class="form-tips">检查失败，请确认后端已启动。</div>'; });
+}
+
+function bgiToggleUpdateAuto() {
+    const enabled = !!(document.getElementById('bgi-update-auto') || {}).checked;
+    const intervalEl = document.getElementById('bgi-update-interval');
+    const body = { enabled: enabled };
+    if (intervalEl && Number(intervalEl.value)) body.interval_hours = Number(intervalEl.value);
+    fetch('/api/bettergi/update/auto-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            const d = (res && res.data) || {};
+            showToast(enabled ? ('定时检查已开启（每 ' + (d.interval_hours || 6) + ' 小时）') : '定时检查已关闭', res.status === 'success' ? 'success' : 'error');
+        })
+        .catch(function () { showToast('操作失败', 'error'); });
+}
+
+function bgiUpdateHistory() {
+    const box = document.getElementById('bgi-update-result');
+    fetch('/api/bettergi/update/history?limit=20')
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            const items = (res && res.data) || [];
+            if (!box) return;
+            if (!items.length) { box.innerHTML = '<div class="form-tips">还没有更新记录。</div>'; return; }
+            box.innerHTML = items.map(function (it) {
+                return '<div style="padding:4px 0;border-bottom:1px dashed var(--hairline);font-size:12.5px;">'
+                    + (it.time || '') + ' · ' + (it.kind || 'check')
+                    + ' · 本地 ' + (it.local || '-') + ' → 远端 ' + (it.remote || '-')
+                    + (it.has_update === true ? ' · <b style="color:var(--success,#16a34a)">有更新</b>' : '')
+                    + (it.error ? ' · <span style="color:var(--danger,#ef4444)">' + String(it.error).slice(0, 60) + '</span>' : '')
+                    + '</div>';
+            }).join('');
+        })
+        .catch(function () { if (box) box.innerHTML = '<div class="form-tips">读取历史失败。</div>'; });
+}
+
+function bgiLoadComms() {
+    fetch('/api/bettergi/config')
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            const c = (res && res.config) || {};
+            const set = function (id, v) { const el = document.getElementById(id); if (el && v !== undefined && v !== null) el.value = v; };
+            const check = function (id, v) { const el = document.getElementById(id); if (el) el.checked = !!v; };
+            set('bgi-notify-level', c.notify_min_level || 'info');
+            set('bgi-notify-dedupe', c.notify_dedupe_window !== undefined ? c.notify_dedupe_window : 30);
+            set('bgi-notify-quiet-start', c.notify_quiet_start || '');
+            set('bgi-notify-quiet-end', c.notify_quiet_end || '');
+            set('bgi-notify-webhook-url', c.notify_webhook_url || '');
+            set('bgi-update-repo', c.update_repo || '');
+            set('bgi-update-interval', c.update_check_interval_hours || 6);
+            check('bgi-update-notify', c.update_notify !== false);
+            check('bgi-update-auto', !!c.update_auto_check);
+        })
+        .catch(function () {});
+}
+
 function bgiSetupNotify() {
     const events = document.getElementById('bgi-webhook-events').value.trim();
     const transport = document.getElementById('bgi-notify-transport').value;
@@ -15337,18 +15616,36 @@ function bgiLoadOfficial() {
         const setChk = function (id, v) { const el = document.getElementById(id); if (el) el.checked = !!v; };
         setVal('bgi-qo-appid', c.app_id || '');
         setVal('bgi-qo-secret', '');
-        setVal('bgi-qo-target-type', c.target_type || 'group');
-        setVal('bgi-qo-target-id', c.target_id || '');
+        // 目标 ID 没配时，用最近一次入站会话自动回填（真正持久化在收到消息时已完成）
+        let targetType = c.target_type || 'group';
+        let targetId = c.target_id || '';
+        if (!targetId) {
+            const li = st.last_inbound || {};
+            const autoKind = li.user ? 'user' : (li.group ? 'group' : '');
+            if (autoKind) {
+                targetType = autoKind;
+                targetId = li[autoKind].id || '';
+            }
+        }
+        setVal('bgi-qo-target-type', targetType);
+        setVal('bgi-qo-target-id', targetId);
         setChk('bgi-qo-enabled', c.enabled);
         setChk('bgi-qo-ws-enabled', c.ws_enabled !== false);
         setChk('bgi-qo-command-enabled', c.command_enabled !== false);
+        setChk('bgi-qo-auto-bind', c.auto_bind_target !== false);
         setVal('bgi-qo-command-prefix', c.command_prefix || 'bgi');
         setVal('bgi-qo-allowed-groups', (c.command_allowed_groups || []).join(','));
         setVal('bgi-qo-allowed-users', (c.command_allowed_users || []).join(','));
         const tip = document.getElementById('bgi-official-status');
         if (tip) {
+            const lastIn = st.last_inbound || {};
+            const autoTarget = lastIn.user || lastIn.group;
+            const targetText = st.target_id
+                ? ((st.target_type || 'group') + ':' + st.target_id)
+                : ('自动' + (autoTarget ? '（' + String(autoTarget.id).slice(0, 10) + '…）' : '（等待入站消息）'));
             tip.textContent = '配置: ' + (st.configured ? '已就绪' : '未完成')
-                + ' · 目标: ' + (st.target_type || 'group') + ':' + (st.target_id || '—')
+                + ' · 凭据: ' + (st.has_secret ? '已保存(加密)' : '未保存')
+                + ' · 目标: ' + targetText
                 + ' · Token: ' + (st.token_cached ? '已缓存' : '未获取')
                 + ' · 接收: ' + (st.ws_connected ? '已连接' : (st.ws_running ? '连接中' : '未启动'))
                 + ' · 命令: ' + (st.commands_handled || 0) + ' 次'
@@ -15364,33 +15661,74 @@ function bgiLoadOfficial() {
     }).catch(function () {});
 }
 
-function bgiSaveOfficial() {
+// 收集官方机器人表单；AppSecret 留空表示不修改
+function _bgiOfficialFormBody(requireAppId) {
+    const get = function (id) { return document.getElementById(id); };
+    const appidEl = get('bgi-qo-appid');
+    if (!appidEl) return null;
+    // 总保存时：AppID 为空说明官方区块没加载出来，跳过以免把已保存的凭据清空
+    if (requireAppId && !appidEl.value.trim()) return null;
     const body = {
-        enabled: document.getElementById('bgi-qo-enabled').checked,
-        app_id: document.getElementById('bgi-qo-appid').value.trim(),
-        target_type: document.getElementById('bgi-qo-target-type').value,
-        target_id: document.getElementById('bgi-qo-target-id').value.trim(),
-        ws_enabled: document.getElementById('bgi-qo-ws-enabled').checked,
-        command_enabled: document.getElementById('bgi-qo-command-enabled').checked,
-        command_prefix: document.getElementById('bgi-qo-command-prefix').value.trim() || 'bgi',
-        command_allowed_groups: document.getElementById('bgi-qo-allowed-groups').value
+        enabled: get('bgi-qo-enabled').checked,
+        app_id: appidEl.value.trim(),
+        target_type: get('bgi-qo-target-type').value,
+        target_id: get('bgi-qo-target-id').value.trim(),
+        ws_enabled: get('bgi-qo-ws-enabled').checked,
+        command_enabled: get('bgi-qo-command-enabled').checked,
+        command_prefix: (get('bgi-qo-command-prefix').value.trim() || 'bgi'),
+        command_allowed_groups: get('bgi-qo-allowed-groups').value
             .split(/[,，]/).map(function (s) { return s.trim(); }).filter(Boolean),
-        command_allowed_users: document.getElementById('bgi-qo-allowed-users').value
-            .split(/[,，]/).map(function (s) { return s.trim(); }).filter(Boolean)
+        command_allowed_users: get('bgi-qo-allowed-users').value
+            .split(/[,，]/).map(function (s) { return s.trim(); }).filter(Boolean),
+        auto_bind_target: get('bgi-qo-auto-bind') ? get('bgi-qo-auto-bind').checked : true
     };
-    const secret = document.getElementById('bgi-qo-secret').value.trim();
+    const secretEl = get('bgi-qo-secret');
+    const secret = secretEl ? secretEl.value.trim() : '';
     if (secret) body.app_secret = secret;
-    fetch('/api/qq-official/config', {
+    return body;
+}
+
+function _bgiSaveOfficialRequest(requireAppId) {
+    const body = _bgiOfficialFormBody(!!requireAppId);
+    if (!body) return Promise.resolve(null);
+    return fetch('/api/qq-official/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
-    })
-        .then(function (r) { return r.json(); })
+    }).then(function (r) { return r.json(); });
+}
+
+function bgiSaveOfficial() {
+    _bgiSaveOfficialRequest(false)
         .then(function (res) {
-            showToast(res.message || '已保存', res.status === 'success' ? 'success' : 'error');
+            if (!res) { showToast('找不到官方机器人配置项', 'error'); return; }
+            const valid = !(res.validate && !res.validate.ok);
+            let msg = res.message || '已保存';
+            if (res.secret_saved && valid) msg += '（输入框已清空，属正常）';
+            showToast(msg, valid ? 'success' : 'error');
             bgiLoadOfficial();
         })
-        .catch(function () { showToast('保存失败', 'error'); });
+        .catch(function () { showToast('保存失败，请确认后端已启动', 'error'); });
+}
+
+// 从最近一次入站消息自动获取 openid（无需手动填写目标 ID）
+function bgiAutoTarget() {
+    fetch('/api/qq-official/auto-target', { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            const d = (res && res.data) || {};
+            if (res.status !== 'success' || !d.ok) {
+                showToast((res && res.message) || '还没有可用的入站消息', 'error');
+                return;
+            }
+            const typeEl = document.getElementById('bgi-qo-target-type');
+            const idEl = document.getElementById('bgi-qo-target-id');
+            if (typeEl) typeEl.value = d.target_type;
+            if (idEl) idEl.value = d.target_id;
+            showToast('已获取 openid（' + d.target_type + '）：' + String(d.target_id).slice(0, 12) + '…', 'success');
+            bgiLoadOfficial();
+        })
+        .catch(function () { showToast('自动获取失败，请确认后端已启动', 'error'); });
 }
 
 function bgiTestOfficial() {

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Furina Agent Web</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=20261114kg6">
+    <link rel="stylesheet" href="/static/css/style.css?v=20261122bgiui4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="hljs-theme">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -2306,14 +2306,16 @@
                 </div>
 
 <div id="bettergi-view" class="view">
-                    <div class="view-header">
-                        <h2><i class="fas fa-gamepad"></i> BetterGI 托管</h2>
+                    <div class="view-header bgi-page-header">
+                        <div class="bgi-page-title">
+                            <h2><i class="fas fa-gamepad"></i> BetterGI 托管</h2>
+                            <div class="bgi-page-sub">一条龙、监控、通知与自愈，一屏管理</div>
+                        </div>
                         <div class="view-actions">
                             <button class="btn btn-sm" onclick="bgiLoadPage()"><i class="fas fa-redo-alt"></i> 刷新</button>
                             <button class="btn btn-sm" onclick="switchView('chat')"><i class="fas fa-arrow-left"></i> 返回</button>
                         </div>
                     </div>
-
                     <div class="bgi-elev-banner" id="bgi-elev-banner" style="display:none">
                         <i class="fas fa-shield-halved"></i>
                         <span class="bgi-elev-text">当前不是管理员权限：BetterGI 若以管理员运行，更新流程的点击会被系统拦截。</span>
@@ -2321,34 +2323,48 @@
                             <i class="fas fa-arrow-up-right-from-square"></i> 以管理员身份重启
                         </button>
                     </div>
-
-                    <div class="settings-section">
-                        <div class="bgi-master">
-                            <label class="bgi-switch bgi-switch-lg">
+                    <div class="bgi-hero">
+                        <div class="bgi-hero-head">
+                            <label class="bgi-switch">
                                 <input type="checkbox" id="bgi-enabled" onchange="bgiToggleMaster()">
                                 <span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span>
                                 <span class="bgi-switch-text">托管总开关</span>
                             </label>
-                            <div id="bgi-master-state" class="bgi-master-state">正在读取状态…</div>
+                            <div class="bgi-hero-title">
+                                <span id="bgi-head-pill" class="bgi-pill idle">读取中</span>
+                                <span id="bgi-master-state" class="bgi-master-state">正在读取状态…</span>
+                            </div>
                         </div>
-                    </div>
-
-                    <div class="settings-section">
-                        <div class="settings-section-title"><i class="fas fa-heartbeat"></i> 运行状态</div>
-                        <div class="form-tips" style="margin-bottom:10px;">
-                            进程监控、事件接收、图像识别兜底、定时任务与自动关机均已接入真实动作；总开关关闭时上述自动化不会执行。
+                        <div class="bgi-status-card" id="bgi-status-card">
+                            <div class="bgi-skeleton">正在读取状态…</div>
                         </div>
-                        <div id="bgi-status-card" style="border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;background:rgba(255,255,255,.02);line-height:1.9;">
-                            <div style="color:#6b7280;font-size:13px;">正在读取状态…</div>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
+                        <div class="bgi-quick-actions">
                             <button class="btn btn-primary" onclick="bgiMonitor(true)"><i class="fas fa-play"></i> 开始监控</button>
-                            <button class="btn btn-secondary" onclick="bgiMonitor(false)"><i class="fas fa-stop"></i> 停止监控</button>
+                            <button class="btn btn-secondary" onclick="bgiMonitor(false)"><i class="fas fa-pause"></i> 停止监控</button>
                             <button class="btn btn-secondary" onclick="bgiLaunch()"><i class="fas fa-rocket"></i> 启动 BetterGI</button>
                             <button class="btn btn-secondary" onclick="bgiKill()"><i class="fas fa-power-off"></i> 结束进程</button>
                         </div>
                     </div>
-
+                    <nav class="bgi-tabs" role="tablist">
+                        <button class="bgi-tab active" data-tab="overview" onclick="bgiTab('overview', this)"><i class="fas fa-gauge-high"></i> 概览</button>
+                        <button class="bgi-tab" data-tab="hosting" onclick="bgiTab('hosting', this)"><i class="fas fa-gamepad"></i> 托管</button>
+                        <button class="bgi-tab" data-tab="notify" onclick="bgiTab('notify', this)"><i class="fas fa-bell"></i> 通知</button>
+                        <button class="bgi-tab" data-tab="automation" onclick="bgiTab('automation', this)"><i class="fas fa-robot"></i> 自动化</button>
+                        <button class="bgi-tab" data-tab="maintain" onclick="bgiTab('maintain', this)"><i class="fas fa-tools"></i> 维护</button>
+                    </nav>
+                    <div class="bgi-panes">
+                    <div class="bgi-pane active" data-pane="overview">
+                    <div class="settings-section">
+                        <div class="settings-section-title"><i class="fas fa-history"></i> 事件日志</div>
+                        <div id="bgi-events" class="bgi-panel bgi-events-panel">
+                            <div class="bgi-skeleton">暂无事件。</div>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <button class="btn btn-secondary" onclick="bgiClearEvents()"><i class="fas fa-trash"></i> 清空事件</button>
+                        </div>
+                    </div>
+                    </div>
+                    <div class="bgi-pane" data-pane="hosting">
                     <div class="settings-section">
                         <div class="settings-section-title"><i class="fas fa-cog"></i> 托管配置</div>
                         <div class="settings-grid-2">
@@ -2404,248 +2420,6 @@
                         <div id="bgi-detect-hint" class="form-tips" style="margin-top:8px;"></div>
                     </div>
 
-                    <div class="settings-section">
-                        <div class="settings-section-title"><i class="fab fa-qq"></i> 通知与任务结束</div>
-                        <div class="form-tips" style="margin-bottom:10px;">
-                            BetterGI 通过 Webhook 把任务事件推送到本服务（一条龙开始/结束、配置组开始/结束、任务错误等）。写入配置后需重启 BetterGI 才会生效。
-                        </div>
-                        <div id="bgi-notify-status" style="border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;background:rgba(255,255,255,.02);line-height:1.9;">
-                            <div style="color:#6b7280;font-size:13px;">正在读取通知配置…</div>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-auto-setup-notify"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启动时自动同步通知端点</span></label>
-                            <div>
-                                <div class="toggle-label">订阅事件（逗号分隔）</div>
-                                <input type="text" id="bgi-webhook-events" class="input-lg" placeholder="留空表示全部事件">
-                            </div>
-                            <div>
-                                <div class="toggle-label">事件推送方式</div>
-                                <select id="bgi-notify-transport" class="input-lg">
-                                    <option value="webhook">Webhook（HTTP POST）</option>
-                                    <option value="websocket">WebSocket（实时推送）</option>
-                                </select>
-                            </div>
-                            <div>
-                                <div class="toggle-label">QQ 推送目标（可选）</div>
-                                <input type="text" id="bgi-notify-target" class="input-lg" placeholder="group:群号 或 private:QQ号">
-                            </div>
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-notify-qq"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">通过 QQ 推送事件</span></label>
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-notify-task-events"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">任务开始/结束/错误也推送</span></label>
-                            <div>
-                                <div class="toggle-label">QQ 告警冷却（秒）</div>
-                                <input type="number" id="bgi-notify-cooldown" class="input-lg" min="30" max="3600">
-                            </div>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <button class="btn btn-primary" onclick="bgiSetupNotify()"><i class="fas fa-plug"></i> 写入通知配置</button>
-                            <button class="btn btn-secondary" onclick="bgiRefreshNotify()"><i class="fas fa-sync-alt"></i> 刷新通知状态</button>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-auto-shutdown"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">任务成功后自动关机</span></label>
-                            <div>
-                                <div class="toggle-label">关机倒计时（秒）</div>
-                                <input type="number" id="bgi-shutdown-delay" class="input-lg" min="0" max="600">
-                            </div>
-                            <button class="btn btn-secondary" onclick="bgiCancelShutdown()"><i class="fas fa-ban"></i> 取消关机</button>
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-image-fallback"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用图像识别兜底</span></label>
-                        </div>
-
-                        <div class="settings-section-title" style="margin-top:18px;"><i class="fab fa-qq"></i> QQ 官方机器人（开放平台）</div>
-                        <div class="form-tips" style="margin-bottom:10px;">
-                            AppID / AppSecret 来自 QQ 开放平台；群与 C2C 的主动消息通常需要 msg_id，频道可直接发送。
-                        </div>
-                        <div class="settings-grid-2">
-                            <div>
-                                <div class="toggle-label">AppID</div>
-                                <input type="text" id="bgi-qo-appid" class="input-lg" placeholder="机器人 AppID">
-                            </div>
-                            <div>
-                                <div class="toggle-label">AppSecret</div>
-                                <input type="password" id="bgi-qo-secret" class="input-lg" placeholder="留空则不修改" autocomplete="off">
-                            </div>
-                            <div>
-                                <div class="toggle-label">目标类型</div>
-                                <select id="bgi-qo-target-type" class="input-lg">
-                                    <option value="group">群（group_openid）</option>
-                                    <option value="user">用户（user_openid）</option>
-                                    <option value="channel">频道（channel_id）</option>
-                                </select>
-                            </div>
-                            <div>
-                                <div class="toggle-label">目标 ID</div>
-                                <input type="text" id="bgi-qo-target-id" class="input-lg" placeholder="群 openid / 用户 openid / 频道 id">
-                            </div>
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-qo-enabled"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用官方机器人</span></label>
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-notify-official"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">BetterGI 事件也推送到官方机器人</span></label>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <button class="btn btn-primary" onclick="bgiSaveOfficial()"><i class="fas fa-save"></i> 保存官方机器人配置</button>
-                            <button class="btn btn-secondary" onclick="bgiTestOfficial()"><i class="fas fa-paper-plane"></i> 发送测试消息</button>
-                            <button class="btn btn-secondary" onclick="bgiLoadOfficial()"><i class="fas fa-sync-alt"></i> 刷新状态</button>
-                            <button class="btn btn-secondary" onclick="bgiLoadOfficialMessages()"><i class="fas fa-inbox"></i> 查看入站消息</button>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-qo-ws-enabled"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用消息接收（WebSocket）</span></label>
-                            <button class="btn btn-secondary" onclick="bgiToggleWs(true)"><i class="fas fa-plug"></i> 启动接收</button>
-                            <button class="btn btn-secondary" onclick="bgiToggleWs(false)"><i class="fas fa-stop"></i> 停止接收</button>
-                            <button class="btn btn-secondary" onclick="bgiRestartGateway()"><i class="fas fa-redo"></i> 重启网关</button>
-                            <button class="btn btn-secondary" onclick="bgiValidateOfficial()"><i class="fas fa-shield-alt"></i> 校验凭据</button>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-qo-command-enabled"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用命令系统</span></label>
-                            <div>
-                                <div class="toggle-label">命令前缀</div>
-                                <input type="text" id="bgi-qo-command-prefix" class="input-lg" placeholder="bgi">
-                            </div>
-                            <button class="btn btn-secondary" onclick="bgiLoadOfficialCommands()"><i class="fas fa-terminal"></i> 查看命令记录</button>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <div>
-                                <div class="toggle-label">允许的群（group_openid，逗号分隔）</div>
-                                <input type="text" id="bgi-qo-allowed-groups" class="input-lg" placeholder="留空则拒绝启动/停止类命令">
-                            </div>
-                            <div>
-                                <div class="toggle-label">允许的用户（user_openid，逗号分隔）</div>
-                                <input type="text" id="bgi-qo-allowed-users" class="input-lg" placeholder="留空则拒绝启动/停止类命令">
-                            </div>
-                        </div>
-                        <div class="form-tips" style="margin-top:6px;">
-                            只读命令（bgi状态 / bgi帮助）不受限制；启动、停止、一条龙、兜底、取消关机等需要先填写允许的群或用户。
-                        </div>
-                        <div class="form-tips" style="margin-top:6px;">
-                            QQ 内可用：bgi状态 / bgi启动 [normal|onedragon|groups|task_progress] / bgi一条龙 [配置名] / bgi配置组 组名1,组名2 / bgi停止 / bgi兜底 / bgi取消关机 / bgi定时 / bgi备份 / bgi重启
-                        </div>
-                        <div id="bgi-official-status" class="form-tips" style="margin-top:8px;"></div>
-                        <div id="bgi-qo-messages" class="form-tips" style="margin-top:4px;"></div>
-
-                        <div class="settings-section-title" style="margin-top:18px;"><i class="fas fa-eye"></i> 图像识别兜底（本地 OCR + AI 决策）</div>
-                        <div class="form-tips" style="margin-bottom:10px;">
-                            任务长时间没有进度时，截取原神窗口做本地 OCR，命中规则自动点击；规则未命中且开启 AI 决策时，交给多模态模型判断。OCR 引擎缺失可在下方安装，打包版需内置。
-                        </div>
-                        <div id="bgi-vision-status" style="border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;background:rgba(255,255,255,.02);line-height:1.9;">
-                            <div style="color:#6b7280;font-size:13px;">正在读取 OCR 状态…</div>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <div>
-                                <div class="toggle-label">卡住判定时间（秒）</div>
-                                <input type="number" id="bgi-vision-stall" class="input-lg" min="60" max="3600">
-                            </div>
-                            <div>
-                                <div class="toggle-label">单次最多尝试次数</div>
-                                <input type="number" id="bgi-vision-attempts" class="input-lg" min="1" max="10">
-                            </div>
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-vision-ai"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">规则未命中时交给 AI 决策</span></label>
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-overlay-enabled"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">调试：在屏幕上显示识别红框</span></label>
-                            <div>
-                                <div class="toggle-label">红框显示时长（毫秒）</div>
-                                <input type="number" id="bgi-overlay-duration" class="input-lg" min="500" max="10000">
-                            </div>
-                            <div>
-                                <div class="toggle-label">坐标缩放（0 = 自动）</div>
-                                <input type="number" id="bgi-overlay-scale" class="input-lg" min="0" max="3" step="0.05" placeholder="高 DPI 偏移时可填 1.25">
-                            </div>
-                            <div style="grid-column: 1 / -1;">
-                                <div class="toggle-label">测试识别区域（比例 0~1，留空 = 整窗）</div>
-                                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
-                                    <input type="number" id="bgi-region-x1" class="input-lg" min="0" max="1" step="0.01" placeholder="x1 例 0.2">
-                                    <input type="number" id="bgi-region-y1" class="input-lg" min="0" max="1" step="0.01" placeholder="y1 例 0.3">
-                                    <input type="number" id="bgi-region-x2" class="input-lg" min="0" max="1" step="0.01" placeholder="x2 例 0.8">
-                                    <input type="number" id="bgi-region-y2" class="input-lg" min="0" max="1" step="0.01" placeholder="y2 例 0.9">
-                                </div>
-                            </div>
-                            <div style="grid-column: 1 / -1;">
-                                <div class="toggle-label">点击规则（JSON，留空使用内置规则）</div>
-                                <textarea id="bgi-vision-rules" class="input-lg" rows="3" placeholder='[{"text":"确认","action":"click"},{"template":"dialog_confirm","action":"click","region":[0.2,0.3,0.8,0.9],"threshold":0.85}]'></textarea>
-                            </div>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <button class="btn btn-secondary" onclick="bgiVisionTest()"><i class="fas fa-camera"></i> 测试 OCR</button>
-                            <button class="btn btn-secondary" onclick="bgiOverlayPreview()"><i class="fas fa-vector-square"></i> 测试红框</button>
-                            <button class="btn btn-primary" onclick="bgiVisionRecover()"><i class="fas fa-first-aid"></i> 立即兜底</button>
-                            <button class="btn btn-secondary" onclick="bgiVisionEnsure()"><i class="fas fa-download"></i> 安装 OCR 引擎</button>
-                        </div>
-                        <div id="bgi-vision-result" class="form-tips" style="margin-top:8px;"></div>
-                    </div>
-
-                    <div class="settings-section">
-                        <div class="settings-section-title"><i class="fas fa-heartbeat"></i> 健康检查与自愈</div>
-                        <div class="form-tips" style="margin-bottom:10px;">
-                            任务卡死或报错时依次执行：重启 BetterGI → 拉起游戏 → 关闭无响应窗口 → 网络恢复 → 放弃。默认关闭；开启后异常会自动处理，并把现场截图推送到 QQ。
-                        </div>
-                        <div id="bgi-health-status" style="border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;background:rgba(255,255,255,.02);line-height:1.9;">
-                            <div style="color:#6b7280;font-size:13px;">正在读取健康状态…</div>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-health-enabled"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用健康检查与自愈链</span></label>
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-network-recover"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">允许刷新 DNS 恢复网络</span></label>
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-notify-screenshot"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">自愈时截图推送到 QQ</span></label>
-                            <div>
-                                <div class="toggle-label">任务级重试上限</div>
-                                <input type="number" id="bgi-retry-max" class="input-lg" min="1" max="10">
-                            </div>
-                            <div>
-                                <div class="toggle-label">重试最小间隔（秒）</div>
-                                <input type="number" id="bgi-retry-interval" class="input-lg" min="10" max="3600">
-                            </div>
-                            <div>
-                                <div class="toggle-label">游戏启动器路径（留空则跳过拉起游戏）</div>
-                                <input type="text" id="bgi-game-launcher" class="input-lg" placeholder="例如 D:\Genshin\launcher.exe">
-                            </div>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <button class="btn btn-secondary" onclick="bgiHealthCheck()"><i class="fas fa-stethoscope"></i> 立即体检</button>
-                            <button class="btn btn-primary" onclick="bgiHealthRecover()"><i class="fas fa-heartbeat"></i> 立即自愈</button>
-                        </div>
-                        <div id="bgi-health-result" class="form-tips" style="margin-top:8px;"></div>
-                    </div>
-
-                    <div class="settings-section">
-                        <div class="settings-section-title"><i class="fas fa-exclamation-triangle"></i> 异常判定与模式</div>
-                        <div class="form-tips" style="margin-bottom:10px;">
-                            按手写稿 R9 分四类处理：BetterGI 报错（当日累计到上限后重启一条龙）、BGI 活但原神死（只回报）、时间段内两边都没启动（回报并拉起）、任务异常退出且原神存活超时（关机）。默认关闭。
-                        </div>
-                        <div id="bgi-errors-status" style="border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;background:rgba(255,255,255,.02);line-height:1.9;">
-                            <div style="color:#6b7280;font-size:13px;">正在读取异常判定状态…</div>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <label class="bgi-switch"><input type="checkbox" id="bgi-error-guard"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用异常判定与自动处理</span></label>
-                            <div>
-                                <div class="toggle-label">监测模式</div>
-                                <select id="bgi-monitor-mode" class="input-lg">
-                                    <option value="loose">宽松（只记录，累计无响应才抛异常）</option>
-                                    <option value="strict">严格（报错即回报，轮询收紧到 15 秒）</option>
-                                </select>
-                            </div>
-                            <div>
-                                <div class="toggle-label">严格模式无响应上限（次）</div>
-                                <input type="number" id="bgi-strict-miss" class="input-lg" min="1" max="10">
-                            </div>
-                            <div>
-                                <div class="toggle-label">宽松模式无响应上限（次）</div>
-                                <input type="number" id="bgi-loose-miss" class="input-lg" min="1" max="200">
-                            </div>
-                            <div>
-                                <div class="toggle-label">日错误上限（次）</div>
-                                <input type="number" id="bgi-daily-error-limit" class="input-lg" min="1" max="20">
-                            </div>
-                            <div>
-                                <div class="toggle-label">原神存活上限（小时）</div>
-                                <input type="number" id="bgi-game-alive-hours" class="input-lg" min="1" max="72">
-                            </div>
-                            <div>
-                                <div class="toggle-label">规定时间段开始（HH:MM）</div>
-                                <input type="text" id="bgi-active-start" class="input-lg" placeholder="例如 08:00">
-                            </div>
-                            <div>
-                                <div class="toggle-label">规定时间段结束（HH:MM）</div>
-                                <input type="text" id="bgi-active-end" class="input-lg" placeholder="例如 12:00">
-                            </div>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <button class="btn btn-secondary" onclick="bgiResetErrorCounters()"><i class="fas fa-eraser"></i> 重置当日计数</button>
-                            <div id="bgi-errors-result" class="form-tips"></div>
-                        </div>
-                    </div>
 
                     <div class="settings-section">
                         <div class="settings-section-title"><i class="fas fa-clock"></i> 启动与定时</div>
@@ -2694,13 +2468,340 @@
                         </div>
                     </div>
 
+                    </div>
+                    <div class="bgi-pane" data-pane="notify">
+                    <div class="settings-section">
+                        <div class="settings-section-title"><i class="fab fa-qq"></i> 通知与任务结束</div>
+                        <div class="form-tips" style="margin-bottom:10px;">
+                            BetterGI 通过 Webhook 把任务事件推送到本服务（一条龙开始/结束、配置组开始/结束、任务错误等）。写入配置后需重启 BetterGI 才会生效。
+                        </div>
+                        <div id="bgi-notify-status" class="bgi-panel">
+                            <div class="bgi-skeleton">正在读取通知配置…</div>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-auto-setup-notify"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启动时自动同步通知端点</span></label>
+                            <div>
+                                <div class="toggle-label">订阅事件（逗号分隔）</div>
+                                <input type="text" id="bgi-webhook-events" class="input-lg" placeholder="留空表示全部事件">
+                            </div>
+                            <div>
+                                <div class="toggle-label">事件推送方式</div>
+                                <select id="bgi-notify-transport" class="input-lg">
+                                    <option value="webhook">Webhook（HTTP POST）</option>
+                                    <option value="websocket">WebSocket（实时推送）</option>
+                                </select>
+                            </div>
+                            <div>
+                                <div class="toggle-label">QQ 推送目标（可选）</div>
+                                <input type="text" id="bgi-notify-target" class="input-lg" placeholder="group:群号 或 private:QQ号">
+                            </div>
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-notify-qq"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">通过 QQ 推送事件</span></label>
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-notify-task-events"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">任务开始/结束/错误也推送</span></label>
+                            <div>
+                                <div class="toggle-label">QQ 告警冷却（秒）</div>
+                                <input type="number" id="bgi-notify-cooldown" class="input-lg" min="30" max="3600">
+                            </div>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <button class="btn btn-primary" onclick="bgiSetupNotify()"><i class="fas fa-plug"></i> 写入通知配置</button>
+                            <button class="btn btn-secondary" onclick="bgiRefreshNotify()"><i class="fas fa-sync-alt"></i> 刷新通知状态</button>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-auto-shutdown"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">任务成功后自动关机</span></label>
+                            <div>
+                                <div class="toggle-label">关机倒计时（秒）</div>
+                                <input type="number" id="bgi-shutdown-delay" class="input-lg" min="0" max="600">
+                            </div>
+                            <button class="btn btn-secondary" onclick="bgiCancelShutdown()"><i class="fas fa-ban"></i> 取消关机</button>
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-image-fallback"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用图像识别兜底</span></label>
+                        </div>
+
+                                            </div>
+
+                    <div class="settings-section">
+<div class="settings-section-title"><i class="fab fa-qq"></i> QQ 官方机器人（开放平台）</div>
+                        <div class="form-tips" style="margin-bottom:10px;">
+                            AppID / AppSecret 来自 QQ 开放平台。目标 ID 可以留空：先让目标 QQ 给机器人发一条消息（群聊需 @机器人），
+                            系统会自动记录 openid 并用于 BetterGI 推送；也可以手动填入 user_openid / group_openid 固定目标。
+                        </div>
+                        <div class="settings-grid-2">
+                            <div>
+                                <div class="toggle-label">AppID</div>
+                                <input type="text" id="bgi-qo-appid" class="input-lg" placeholder="机器人 AppID">
+                            </div>
+                            <div>
+                                <div class="toggle-label">AppSecret</div>
+                                <input type="password" id="bgi-qo-secret" class="input-lg" placeholder="留空则不修改" autocomplete="off">
+                                <div class="form-tips" style="margin-top:4px;">加密保存、保存后不回显；改完密钥点本区块或页面底部「保存配置」都会写入。</div>
+                            </div>
+                            <div>
+                                <div class="toggle-label">目标类型</div>
+                                <select id="bgi-qo-target-type" class="input-lg">
+                                    <option value="group">群（group_openid）</option>
+                                    <option value="user">用户（user_openid）</option>
+                                    <option value="channel">频道（channel_id）</option>
+                                </select>
+                            </div>
+                            <div>
+                                <div class="toggle-label">目标 ID</div>
+                                <input type="text" id="bgi-qo-target-id" class="input-lg" placeholder="留空=自动（最近一次入站会话），或填 user_openid / group_openid">
+                            </div>
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-qo-enabled"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用官方机器人</span></label>
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-notify-official"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">BetterGI 事件也推送到官方机器人</span></label>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <button class="btn btn-primary" onclick="bgiSaveOfficial()"><i class="fas fa-save"></i> 保存官方机器人配置</button>
+                            <button class="btn btn-secondary" onclick="bgiTestOfficial()"><i class="fas fa-paper-plane"></i> 发送测试消息</button>
+                            <button class="btn btn-secondary" onclick="bgiLoadOfficial()"><i class="fas fa-sync-alt"></i> 刷新状态</button>
+                            <button class="btn btn-secondary" onclick="bgiLoadOfficialMessages()"><i class="fas fa-inbox"></i> 查看入站消息</button>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-qo-ws-enabled"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用消息接收（WebSocket）</span></label>
+                            <button class="btn btn-secondary" onclick="bgiToggleWs(true)"><i class="fas fa-plug"></i> 启动接收</button>
+                            <button class="btn btn-secondary" onclick="bgiToggleWs(false)"><i class="fas fa-stop"></i> 停止接收</button>
+                            <button class="btn btn-secondary" onclick="bgiRestartGateway()"><i class="fas fa-redo"></i> 重启网关</button>
+                            <button class="btn btn-secondary" onclick="bgiValidateOfficial()"><i class="fas fa-shield-alt"></i> 校验凭据</button>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-qo-command-enabled"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用命令系统</span></label>
+                            <div>
+                                <div class="toggle-label">命令前缀</div>
+                                <input type="text" id="bgi-qo-command-prefix" class="input-lg" placeholder="bgi">
+                            </div>
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-qo-auto-bind"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">自动记录 openid（收到消息即绑定）</span></label>
+                            <button class="btn btn-secondary" onclick="bgiAutoTarget()"><i class="fas fa-crosshairs"></i> 自动获取 OpenID</button>
+                            <button class="btn btn-secondary" onclick="bgiLoadOfficialCommands()"><i class="fas fa-terminal"></i> 查看命令记录</button>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <div>
+                                <div class="toggle-label">允许的群（group_openid，逗号分隔）</div>
+                                <input type="text" id="bgi-qo-allowed-groups" class="input-lg" placeholder="留空则拒绝启动/停止类命令">
+                            </div>
+                            <div>
+                                <div class="toggle-label">允许的用户（user_openid，逗号分隔）</div>
+                                <input type="text" id="bgi-qo-allowed-users" class="input-lg" placeholder="留空则拒绝启动/停止类命令">
+                            </div>
+                        </div>
+                        <div class="form-tips" style="margin-top:6px;">
+                            只读命令（bgi状态 / bgi帮助）不受限制；启动、停止、一条龙、兜底、取消关机等需要先填写允许的群或用户。
+                        </div>
+                        <div class="form-tips" style="margin-top:6px;">
+                            QQ 内可用：bgi状态 / bgi启动 [normal|onedragon|groups|task_progress] / bgi一条龙 [配置名] / bgi配置组 组名1,组名2 / bgi停止 / bgi兜底 / bgi取消关机 / bgi定时 / bgi备份 / bgi重启
+                        </div>
+                        <div id="bgi-official-status" class="form-tips" style="margin-top:8px;"></div>
+                        <div id="bgi-qo-messages" class="form-tips" style="margin-top:4px;"></div>
+
+                                            </div>
+
+                    <div class="settings-section">
+                        <div class="settings-section-title"><i class="fas fa-bolt"></i> 通讯强化 · 投递日志与重试</div>
+                        <div class="form-tips" style="margin-bottom:10px;">
+                            所有推送（NapCat / 官方机器人 / 自定义 Webhook）统一走通知中枢：相同内容去重、静默时段抑制、失败重试一次，并记录每次投递结果。
+                        </div>
+                        <div class="settings-grid-2">
+                            <div>
+                                <div class="toggle-label">最低推送等级</div>
+                                <select id="bgi-notify-level" class="input-lg">
+                                    <option value="info">info（全部）</option>
+                                    <option value="warning">warning（告警及以上）</option>
+                                    <option value="error">error（仅错误）</option>
+                                </select>
+                            </div>
+                            <div>
+                                <div class="toggle-label">去重窗口（秒，0=不去重）</div>
+                                <input type="number" id="bgi-notify-dedupe" class="input-lg" min="0" max="3600">
+                            </div>
+                            <div>
+                                <div class="toggle-label">静默开始（HH:MM，留空不启用）</div>
+                                <input type="text" id="bgi-notify-quiet-start" class="input-lg" placeholder="23:00">
+                            </div>
+                            <div>
+                                <div class="toggle-label">静默结束（HH:MM）</div>
+                                <input type="text" id="bgi-notify-quiet-end" class="input-lg" placeholder="08:00">
+                            </div>
+                            <div style="grid-column: span 2;">
+                                <div class="toggle-label">自定义 Webhook（可选，POST JSON {"text": ...}）</div>
+                                <input type="text" id="bgi-notify-webhook-url" class="input-lg" placeholder="https://example.com/hook">
+                            </div>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <button class="btn btn-primary" onclick="bgiSaveComms()"><i class="fas fa-save"></i> 保存通讯设置</button>
+                            <button class="btn btn-secondary" onclick="bgiNotifyTest()"><i class="fas fa-paper-plane"></i> 发送测试通知</button>
+                            <button class="btn btn-secondary" onclick="bgiRefreshNotifyLog()"><i class="fas fa-list"></i> 刷新投递日志</button>
+                            <button class="btn btn-secondary" onclick="bgiNotifyLogClear()"><i class="fas fa-trash"></i> 清空日志</button>
+                        </div>
+                        <div id="bgi-notify-log" class="form-tips" style="margin-top:10px;"></div>
+                    </div>
+
+                    <div class="settings-section">
+                        <div class="settings-section-title"><i class="fas fa-cloud-download-alt"></i> 更新强化 · 版本检查与历史</div>
+                        <div class="form-tips" style="margin-bottom:10px;">
+                            读取本机 BetterGI.exe 的文件版本，与 GitHub Releases 最新版对比；可定时检查，发现新版本时推送通知。
+                        </div>
+                        <div class="settings-grid-2">
+                            <div>
+                                <div class="toggle-label">检查仓库</div>
+                                <input type="text" id="bgi-update-repo" class="input-lg" placeholder="babalae/better-genshin-impact">
+                            </div>
+                            <div>
+                                <div class="toggle-label">定时检查间隔（小时）</div>
+                                <input type="number" id="bgi-update-interval" class="input-lg" min="1" max="168">
+                            </div>
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-update-notify"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">发现新版本时推送通知</span></label>
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-update-auto"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用定时检查</span></label>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <button class="btn btn-primary" onclick="bgiSaveComms()"><i class="fas fa-save"></i> 保存更新设置</button>
+                            <button class="btn btn-secondary" onclick="bgiUpdateCheck()"><i class="fas fa-search"></i> 立即检查更新</button>
+                            <button class="btn btn-secondary" onclick="bgiToggleUpdateAuto()"><i class="fas fa-clock"></i> 应用定时检查开关</button>
+                            <button class="btn btn-secondary" onclick="bgiUpdateHistory()"><i class="fas fa-history"></i> 查看更新历史</button>
+                        </div>
+                        <div id="bgi-update-result" class="form-tips" style="margin-top:10px;"></div>
+                    </div>
+
+                    </div>
+                    <div class="bgi-pane" data-pane="automation">
+                    <div class="settings-section">
+<div class="settings-section-title"><i class="fas fa-eye"></i> 图像识别兜底（本地 OCR + AI 决策）</div>
+                        <div class="form-tips" style="margin-bottom:10px;">
+                            任务长时间没有进度时，截取原神窗口做本地 OCR，命中规则自动点击；规则未命中且开启 AI 决策时，交给多模态模型判断。OCR 引擎缺失可在下方安装，打包版需内置。
+                        </div>
+                        <div id="bgi-vision-status" class="bgi-panel">
+                            <div class="bgi-skeleton">正在读取 OCR 状态…</div>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <div>
+                                <div class="toggle-label">卡住判定时间（秒）</div>
+                                <input type="number" id="bgi-vision-stall" class="input-lg" min="60" max="3600">
+                            </div>
+                            <div>
+                                <div class="toggle-label">单次最多尝试次数</div>
+                                <input type="number" id="bgi-vision-attempts" class="input-lg" min="1" max="10">
+                            </div>
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-vision-ai"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">规则未命中时交给 AI 决策</span></label>
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-overlay-enabled"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">调试：在屏幕上显示识别红框</span></label>
+                            <div>
+                                <div class="toggle-label">红框显示时长（毫秒）</div>
+                                <input type="number" id="bgi-overlay-duration" class="input-lg" min="500" max="10000">
+                            </div>
+                            <div>
+                                <div class="toggle-label">坐标缩放（0 = 自动）</div>
+                                <input type="number" id="bgi-overlay-scale" class="input-lg" min="0" max="3" step="0.05" placeholder="高 DPI 偏移时可填 1.25">
+                            </div>
+                            <div style="grid-column: 1 / -1;">
+                                <div class="toggle-label">测试识别区域（比例 0~1，留空 = 整窗）</div>
+                                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                                    <input type="number" id="bgi-region-x1" class="input-lg" min="0" max="1" step="0.01" placeholder="x1 例 0.2">
+                                    <input type="number" id="bgi-region-y1" class="input-lg" min="0" max="1" step="0.01" placeholder="y1 例 0.3">
+                                    <input type="number" id="bgi-region-x2" class="input-lg" min="0" max="1" step="0.01" placeholder="x2 例 0.8">
+                                    <input type="number" id="bgi-region-y2" class="input-lg" min="0" max="1" step="0.01" placeholder="y2 例 0.9">
+                                </div>
+                            </div>
+                            <div style="grid-column: 1 / -1;">
+                                <div class="toggle-label">点击规则（JSON，留空使用内置规则）</div>
+                                <textarea id="bgi-vision-rules" class="input-lg" rows="3" placeholder='[{"text":"确认","action":"click"},{"template":"dialog_confirm","action":"click","region":[0.2,0.3,0.8,0.9],"threshold":0.85}]'></textarea>
+                            </div>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <button class="btn btn-secondary" onclick="bgiVisionTest()"><i class="fas fa-camera"></i> 测试 OCR</button>
+                            <button class="btn btn-secondary" onclick="bgiOverlayPreview()"><i class="fas fa-vector-square"></i> 测试红框</button>
+                            <button class="btn btn-primary" onclick="bgiVisionRecover()"><i class="fas fa-first-aid"></i> 立即兜底</button>
+                            <button class="btn btn-secondary" onclick="bgiVisionEnsure()"><i class="fas fa-download"></i> 安装 OCR 引擎</button>
+                        </div>
+                        <div id="bgi-vision-result" class="form-tips" style="margin-top:8px;"></div>
+                    </div>
+
+
+                    <div class="settings-section">
+                        <div class="settings-section-title"><i class="fas fa-heartbeat"></i> 健康检查与自愈</div>
+                        <div class="form-tips" style="margin-bottom:10px;">
+                            任务卡死或报错时依次执行：重启 BetterGI → 拉起游戏 → 关闭无响应窗口 → 网络恢复 → 放弃。默认关闭；开启后异常会自动处理，并把现场截图推送到 QQ。
+                        </div>
+                        <div id="bgi-health-status" class="bgi-panel">
+                            <div class="bgi-skeleton">正在读取健康状态…</div>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-health-enabled"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用健康检查与自愈链</span></label>
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-network-recover"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">允许刷新 DNS 恢复网络</span></label>
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-notify-screenshot"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">自愈时截图推送到 QQ</span></label>
+                            <div>
+                                <div class="toggle-label">任务级重试上限</div>
+                                <input type="number" id="bgi-retry-max" class="input-lg" min="1" max="10">
+                            </div>
+                            <div>
+                                <div class="toggle-label">重试最小间隔（秒）</div>
+                                <input type="number" id="bgi-retry-interval" class="input-lg" min="10" max="3600">
+                            </div>
+                            <div>
+                                <div class="toggle-label">游戏启动器路径（留空则跳过拉起游戏）</div>
+                                <input type="text" id="bgi-game-launcher" class="input-lg" placeholder="例如 D:\Genshin\launcher.exe">
+                            </div>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <button class="btn btn-secondary" onclick="bgiHealthCheck()"><i class="fas fa-stethoscope"></i> 立即体检</button>
+                            <button class="btn btn-primary" onclick="bgiHealthRecover()"><i class="fas fa-heartbeat"></i> 立即自愈</button>
+                        </div>
+                        <div id="bgi-health-result" class="form-tips" style="margin-top:8px;"></div>
+                    </div>
+
+
+                    <div class="settings-section">
+                        <div class="settings-section-title"><i class="fas fa-exclamation-triangle"></i> 异常判定与模式</div>
+                        <div class="form-tips" style="margin-bottom:10px;">
+                            按手写稿 R9 分四类处理：BetterGI 报错（当日累计到上限后重启一条龙）、BGI 活但原神死（只回报）、时间段内两边都没启动（回报并拉起）、任务异常退出且原神存活超时（关机）。默认关闭。
+                        </div>
+                        <div id="bgi-errors-status" class="bgi-panel">
+                            <div class="bgi-skeleton">正在读取异常判定状态…</div>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <label class="bgi-switch"><input type="checkbox" id="bgi-error-guard"><span class="bgi-switch-track"><span class="bgi-switch-knob"></span></span><span class="bgi-switch-text">启用异常判定与自动处理</span></label>
+                            <div>
+                                <div class="toggle-label">监测模式</div>
+                                <select id="bgi-monitor-mode" class="input-lg">
+                                    <option value="loose">宽松（只记录，累计无响应才抛异常）</option>
+                                    <option value="strict">严格（报错即回报，轮询收紧到 15 秒）</option>
+                                </select>
+                            </div>
+                            <div>
+                                <div class="toggle-label">严格模式无响应上限（次）</div>
+                                <input type="number" id="bgi-strict-miss" class="input-lg" min="1" max="10">
+                            </div>
+                            <div>
+                                <div class="toggle-label">宽松模式无响应上限（次）</div>
+                                <input type="number" id="bgi-loose-miss" class="input-lg" min="1" max="200">
+                            </div>
+                            <div>
+                                <div class="toggle-label">日错误上限（次）</div>
+                                <input type="number" id="bgi-daily-error-limit" class="input-lg" min="1" max="20">
+                            </div>
+                            <div>
+                                <div class="toggle-label">原神存活上限（小时）</div>
+                                <input type="number" id="bgi-game-alive-hours" class="input-lg" min="1" max="72">
+                            </div>
+                            <div>
+                                <div class="toggle-label">规定时间段开始（HH:MM）</div>
+                                <input type="text" id="bgi-active-start" class="input-lg" placeholder="例如 08:00">
+                            </div>
+                            <div>
+                                <div class="toggle-label">规定时间段结束（HH:MM）</div>
+                                <input type="text" id="bgi-active-end" class="input-lg" placeholder="例如 12:00">
+                            </div>
+                        </div>
+                        <div class="settings-grid-2" style="margin-top:12px;">
+                            <button class="btn btn-secondary" onclick="bgiResetErrorCounters()"><i class="fas fa-eraser"></i> 重置当日计数</button>
+                            <div id="bgi-errors-result" class="form-tips"></div>
+                        </div>
+                    </div>
+
+                    </div>
+                    <div class="bgi-pane" data-pane="maintain">
                     <div class="settings-section">
                         <div class="settings-section-title"><i class="fas fa-tools"></i> 更新与维护</div>
                         <div class="form-tips" style="margin-bottom:10px;">
                             升级原神 / BetterGI 前先备份 User 配置（不含 Cache）。恢复会覆盖当前配置，恢复前会自动再备份一次当前状态。
                         </div>
-                        <div id="bgi-update-status" style="border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;background:rgba(255,255,255,.02);line-height:1.9;">
-                            <div style="color:#6b7280;font-size:13px;">正在读取维护信息…</div>
+                        <div id="bgi-update-status" class="bgi-panel">
+                            <div class="bgi-skeleton">正在读取维护信息…</div>
                         </div>
                         <div class="settings-grid-2" style="margin-top:12px;">
                             <button class="btn btn-primary" onclick="bgiUpdateBackup()"><i class="fas fa-archive"></i> 备份配置</button>
@@ -2713,8 +2814,8 @@
                         <div class="form-tips" style="margin-bottom:10px;">
                             按手写稿 R5 的顺序执行：原神更新以「开始游戏 / 启动游戏」为完成判定，BetterGI 更新以左上角版本号变化为判定。坐标全部来自识别结果，不写死。
                         </div>
-                        <div id="bgi-flow-status" style="border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;background:rgba(255,255,255,.02);line-height:1.9;">
-                            <div style="color:#6b7280;font-size:13px;">正在读取流程状态…</div>
+                        <div id="bgi-flow-status" class="bgi-panel">
+                            <div class="bgi-skeleton">正在读取流程状态…</div>
                         </div>
                         <div class="settings-grid-2" style="margin-top:12px;">
                             <button class="btn btn-primary" onclick="bgiRunUpdateFlow('game')"><i class="fas fa-gamepad"></i> 执行原神更新流程</button>
@@ -2736,14 +2837,7 @@
                         </div>
                     </div>
 
-                    <div class="settings-section">
-                        <div class="settings-section-title"><i class="fas fa-history"></i> 事件日志</div>
-                        <div id="bgi-events" style="border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;background:rgba(255,255,255,.02);max-height:260px;overflow:auto;font-size:13px;line-height:1.8;">
-                            <div style="color:#6b7280;">暂无事件。</div>
-                        </div>
-                        <div class="settings-grid-2" style="margin-top:12px;">
-                            <button class="btn btn-secondary" onclick="bgiClearEvents()"><i class="fas fa-trash"></i> 清空事件</button>
-                        </div>
+                    </div>
                     </div>
                 </div>
 
@@ -5179,7 +5273,7 @@
     </div>
 
     <script src="/static/vendor/mermaid/mermaid.min.js?v=20261115mmd"></script>
-    <script src="/static/js/app.js?v=20261115rich"></script>
+    <script src="/static/js/app.js?v=20261122bgiui4"></script>
 
     <!-- 通用对话框 -->
     <div class="dialog-overlay" id="dialog-overlay" onclick="closeDialog(event)">
