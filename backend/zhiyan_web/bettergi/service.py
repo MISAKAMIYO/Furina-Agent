@@ -29,6 +29,9 @@ from typing import Any, Deque, Dict, List, Optional
 
 logger = logging.getLogger("ZhiYanWeb.bettergi")
 
+from .notify import NotifyHub  # noqa: E402
+from .updates import UpdateManager, DEFAULT_REPO  # noqa: E402
+
 from .errors import (  # noqa: E402  （避免与 service 内部工具函数命名冲突，放在 logger 之后）
     ERROR_NAMES,
     DailyErrorCounter,
@@ -96,6 +99,18 @@ DEFAULT_BETTERGI_CONFIG: Dict[str, Any] = {
     "schedule_kill_running": False,  # 到点时若 BetterGI 已在运行，是否先结束再按任务模式启动
     "schedules": [],             # 定时任务列表
     "auto_start_on_boot": False, # 开机自启（写入当前用户 Run 键）
+    # ---- 通讯强化 ----
+    "notify_official": False,      # 通过 QQ 官方机器人推送
+    "notify_webhook_url": "",      # 自定义 webhook（POST JSON {"text": ...}）
+    "notify_min_level": "info",    # 最低推送等级：info / warning / error / critical
+    "notify_dedupe_window": 30,    # 相同内容去重窗口（秒），0 = 不去重
+    "notify_quiet_start": "",      # 静默时段开始 HH:MM（留空不启用）
+    "notify_quiet_end": "",        # 静默时段结束 HH:MM
+    # ---- 更新强化 ----
+    "update_repo": "babalae/better-genshin-impact",  # 查最新版本的仓库
+    "update_auto_check": False,    # 定时检查新版本
+    "update_check_interval_hours": 6,
+    "update_notify": True,         # 发现新版本时推送通知
 }
 
 # BetterGI 的启动参数（依据官方 CommandLineOptions.cs）
@@ -211,7 +226,17 @@ class BetterGiManager:
         self._schedule_state: Dict[str, str] = {}
         self._load_schedule_state()
         self._events: Deque[Dict[str, Any]] = deque(maxlen=100)
+        self._update_loop_task: Optional[asyncio.Task] = None
         self.reload()
+
+        # 通讯中枢：去重 / 静默时段 / 重试 / 投递日志
+        self._notify_hub = NotifyHub(sender=self._send_channel, config_getter=self.get_config)
+        # 更新检查：本地 BetterGI.exe 版本 vs GitHub Releases
+        self._updates = UpdateManager(
+            history_path=os.path.join(self._bgi_data_dir(), "update_history.json"),
+            exe_getter=lambda: (self.detect().get("found") or self.detect().get("exe_path") or ""),
+            config_getter=self.get_config,
+        )
 
     # ---------- 配置 ----------
 
@@ -958,64 +983,190 @@ class BetterGiManager:
         except RuntimeError:
             pass
 
+    def _official_target(self) -> tuple:
+        """解析官方机器人的固定目标：user:<openid> / group:<openid>。
+
+        纯数字是 QQ 号 / 群号，不是 openid，直接返回 (None, None)，
+        由 qq_official 使用最近一次入站会话自动发送。
+        """
+        raw = str(self._config.get("notify_target") or "").strip()
+        if not raw or raw.lower() == "auto":
+            return None, None
+        kind, sep, val = raw.partition(":")
+        val = val.strip()
+        if not sep or not val or val.isdigit():
+            return None, None
+        if kind in ("user", "private"):
+            return "user", val
+        if kind == "group":
+            return "group", val
+        return None, None
+
+    async def _send_channel(self, channel: str, text: str) -> Dict[str, Any]:
+        """把一条消息发到指定渠道；返回 {ok, error}。被 NotifyHub 调用。"""
+        if channel == "napcat":
+            target = str(self._config.get("notify_target") or "").strip()
+            if not target:
+                return {"ok": False, "error": "未配置 QQ 通知目标"}
+            try:
+                from zhiyan_web.platform.manager import get_qq_platform_manager
+
+                mgr = get_qq_platform_manager()
+                if not mgr.get_status().get("running"):
+                    return {"ok": False, "error": "QQ 平台未连接"}
+                client = getattr(mgr, "client", None)
+                kind, _, rid = target.partition(":")
+                rid = rid.strip()
+                if client is None:
+                    return {"ok": False, "error": "QQ 客户端不可用"}
+                if not rid.isdigit():
+                    return {"ok": False, "error": f"目标格式不正确: {target}"}
+                if kind == "group":
+                    await client.send_group_msg(int(rid), text, timeout=10)
+                    return {"ok": True}
+                if kind == "private":
+                    await client.send_private_msg(int(rid), text, timeout=10)
+                    return {"ok": True}
+                return {"ok": False, "error": f"目标需为 group:群号 / private:QQ号，当前 {target}"}
+            except Exception as exc:
+                return {"ok": False, "error": f"NapCat: {exc}"}
+
+        if channel == "official":
+            try:
+                from zhiyan_web.platform.qq_official import send_text
+
+                off_type, off_id = self._official_target()
+                result = await send_text(text, target_type=off_type, target_id=off_id)
+                return {"ok": bool(result.get("ok")), "error": "" if result.get("ok") else str(result.get("message"))}
+            except Exception as exc:
+                return {"ok": False, "error": f"官方机器人: {exc}"}
+
+        if channel == "webhook":
+            url = str(self._config.get("notify_webhook_url") or "").strip()
+            if not url:
+                return {"ok": False, "error": "未配置 webhook 地址"}
+            try:
+                import requests
+
+                resp = await asyncio.to_thread(
+                    requests.post,
+                    url,
+                    json={"text": text, "source": "furina-agent", "ts": time.time()},
+                    timeout=8,
+                )
+                ok = 200 <= resp.status_code < 300
+                return {"ok": ok, "error": "" if ok else f"HTTP {resp.status_code}"}
+            except Exception as exc:
+                return {"ok": False, "error": f"webhook: {exc}"}
+
+        return {"ok": False, "error": f"未知渠道 {channel}"}
+
     async def _notify(self, text: str, cooldown: bool = True) -> None:
-        """通过 QQ（NapCat）和/或 QQ 开放平台官方机器人推送告警/事件"""
-        use_napcat = bool(self._config.get("notify_qq"))
-        use_official = bool(self._config.get("notify_official"))
-        if not (use_napcat or use_official):
+        """通过 QQ（NapCat）/ QQ 开放平台官方机器人 / 自定义 webhook 推送。
+
+        去重、静默时段、重试与投递日志都由 NotifyHub 负责；cooldown=False 用于任务事件。
+        """
+        if not (self._config.get("notify_qq") or self._config.get("notify_official") or self._config.get("notify_webhook_url")):
             return
         cooldown_s = float(self._config.get("notify_cooldown") or 300)
         if cooldown and time.time() - self._last_notify_at < cooldown_s:
             return
-
-        sent_any = False
-
-        if use_napcat:
-            target = str(self._config.get("notify_target") or "").strip()
-            if not target:
-                self._emit("warning", "未配置 QQ 通知目标，跳过 NapCat 推送")
-            else:
-                try:
-                    from zhiyan_web.platform.manager import get_qq_platform_manager
-
-                    mgr = get_qq_platform_manager()
-                    if not mgr.get_status().get("running"):
-                        self._emit("warning", "QQ 平台未连接，跳过 NapCat 推送")
-                    else:
-                        client = getattr(mgr, "client", None)
-                        kind, _, rid = target.partition(":")
-                        rid = rid.strip()
-                        if client is None:
-                            pass
-                        elif not rid.isdigit():
-                            self._emit("warning", f"QQ 通知目标格式不正确: {target}")
-                        elif kind == "group":
-                            await client.send_group_msg(int(rid), text, timeout=10)
-                            sent_any = True
-                        elif kind == "private":
-                            await client.send_private_msg(int(rid), text, timeout=10)
-                            sent_any = True
-                        else:
-                            self._emit("warning", f"QQ 通知目标需为 group:群号 或 private:QQ号，当前: {target}")
-                except Exception as e:
-                    self._emit("warning", f"NapCat 推送失败: {e}")
-
-        if use_official:
-            try:
-                from zhiyan_web.platform.qq_official import send_text
-
-                result = await send_text(text)
-                if result.get("ok"):
-                    sent_any = True
-                    self._emit("info", "已推送 QQ 官方机器人")
-                else:
-                    self._emit("warning", f"官方机器人推送失败: {result.get('message')}")
-            except Exception as e:
-                self._emit("warning", f"官方机器人推送异常: {e}")
-
-        if sent_any:
+        try:
+            result = await self._notify_hub.send(
+                text,
+                level="warning" if cooldown else "info",
+                event="bgi",
+                force=not cooldown,
+                retries=1,
+            )
+        except Exception as exc:
+            self._emit("warning", f"通知发送异常: {exc}")
+            return
+        if result.get("sent"):
             self._last_notify_at = time.time()
-            self._emit("info", "已推送 QQ 告警/事件")
+            self._emit("info", f"已推送通知：{', '.join(result['sent'])}")
+        elif result.get("failed"):
+            self._emit("warning", f"通知发送失败：{', '.join(result['failed'])}")
+
+    # ---------- 通讯：日志 / 测试 ----------
+
+    def notify_log(self, limit: int = 30) -> Dict[str, Any]:
+        """通知投递日志 + 统计（给前端面板用）"""
+        return {
+            "stats": self._notify_hub.stats(),
+            "items": self._notify_hub.recent(limit),
+            "channels": self._notify_hub._channels(),
+        }
+
+    def notify_clear(self) -> Dict[str, Any]:
+        self._notify_hub.clear()
+        return {"ok": True}
+
+    async def notify_test(self, channel: str = "") -> Dict[str, Any]:
+        """发一条测试通知，验证渠道是否真的通"""
+        return await self._notify_hub.test(channel)
+
+    # ---------- 更新：检查 / 历史 / 定时 ----------
+
+    def update_check(self, record: bool = True) -> Dict[str, Any]:
+        """本地 BetterGI 版本 vs GitHub 最新 release"""
+        try:
+            result = self._updates.check(record=record)
+        except Exception as exc:
+            return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        result["ok"] = not result.get("error") or bool(result.get("remote"))
+        if result.get("has_update") and self._config.get("update_notify"):
+            text = (
+                f"BetterGI 有新版本：{result.get('local') or '未知'} → {result.get('remote')}\n"
+                f"{result.get('release', {}).get('url', '')}"
+            )
+            try:
+                asyncio.get_running_loop().create_task(self._notify(text, cooldown=False))
+            except RuntimeError:
+                pass
+        return result
+
+    def update_history(self, limit: int = 20) -> List[Dict[str, Any]]:
+        return self._updates.history(limit)
+
+    def record_update(self, **entry: Any) -> Dict[str, Any]:
+        return self._updates.record(**entry)
+
+    async def start_update_auto_check(self) -> Dict[str, Any]:
+        if self._update_loop_task and not self._update_loop_task.done():
+            return {"ok": True, "message": "自动检查已在运行"}
+        self._config["update_auto_check"] = True
+        self._update_loop_task = asyncio.create_task(self._update_loop())
+        return {"ok": True, "message": "已启动定时更新检查"}
+
+    async def stop_update_auto_check(self) -> Dict[str, Any]:
+        self._config["update_auto_check"] = False
+        task = self._update_loop_task
+        self._update_loop_task = None
+        if task and not task.done():
+            task.cancel()
+        return {"ok": True, "message": "已停止定时更新检查"}
+
+    async def _update_loop(self) -> None:
+        try:
+            while self._config.get("update_auto_check"):
+                try:
+                    self.update_check(record=True)
+                except Exception as exc:
+                    self._emit("warning", f"更新检查失败: {exc}")
+                hours = max(1.0, float(self._config.get("update_check_interval_hours") or 6))
+                await asyncio.sleep(hours * 3600)
+        except asyncio.CancelledError:
+            raise
+
+    def update_auto_status(self) -> Dict[str, Any]:
+        running = bool(self._update_loop_task and not self._update_loop_task.done())
+        return {
+            "enabled": bool(self._config.get("update_auto_check")),
+            "running": running,
+            "interval_hours": float(self._config.get("update_check_interval_hours") or 6),
+            "repo": self._config.get("update_repo") or DEFAULT_REPO,
+        }
 
     # ---------- 自动关机 ----------
 
@@ -1479,7 +1630,9 @@ class BetterGiManager:
             try:
                 from zhiyan_web.platform.qq_official import send_image
 
-                result = await send_image(path, text=text[:200])
+                off_type, off_id = self._official_target()
+                result = await send_image(path, text=text[:200],
+                                          target_type=off_type, target_id=off_id)
                 if result.get("ok"):
                     sent = True
                 else:

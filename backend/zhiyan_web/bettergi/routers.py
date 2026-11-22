@@ -427,6 +427,56 @@ async def bettergi_update_restart():
     return {"status": "success" if result.get("ok") else "error", "message": result.get("message", ""), "data": result}
 
 
+@router.get("/notify/log")
+async def bettergi_notify_log(limit: int = 30):
+    """通知投递日志（含统计与当前启用的渠道）"""
+    return {"status": "success", "data": get_bettergi_manager().notify_log(limit)}
+
+
+@router.post("/notify/clear")
+async def bettergi_notify_clear():
+    """清空通知投递日志"""
+    return {"status": "success", "data": get_bettergi_manager().notify_clear()}
+
+
+@router.post("/notify/test")
+async def bettergi_notify_test(payload: Dict[str, Any] = None):
+    """发一条测试通知；payload 可带 channel（napcat / official / webhook，留空=全部启用渠道）"""
+    channel = str((payload or {}).get("channel") or "")
+    result = await get_bettergi_manager().notify_test(channel)
+    return {"status": "success", "data": result}
+
+
+@router.get("/update/check")
+async def bettergi_update_check():
+    """检查 BetterGI 是否有新版本（本地 exe 版本 vs GitHub Releases）"""
+    result = await asyncio.to_thread(get_bettergi_manager().update_check)
+    return {"status": "success", "data": result}
+
+
+@router.get("/update/history")
+async def bettergi_update_history(limit: int = 20):
+    """更新检查 / 更新执行历史"""
+    return {"status": "success", "data": get_bettergi_manager().update_history(limit)}
+
+
+@router.get("/update/auto-check")
+async def bettergi_update_auto_status():
+    """定时检查开关与当前状态"""
+    return {"status": "success", "data": get_bettergi_manager().update_auto_status()}
+
+
+@router.post("/update/auto-check")
+async def bettergi_update_auto_toggle(payload: Dict[str, Any]):
+    """开启/关闭定时检查；payload: {"enabled": true, "interval_hours": 6}"""
+    mgr = get_bettergi_manager()
+    enabled = bool(payload.get("enabled"))
+    if payload.get("interval_hours"):
+        mgr.update_config({"update_check_interval_hours": float(payload["interval_hours"])})
+    data = await (mgr.start_update_auto_check() if enabled else mgr.stop_update_auto_check())
+    return {"status": "success", "data": {**data, **mgr.update_auto_status()}}
+
+
 @router.post("/autostart")
 async def bettergi_autostart_set(payload: Dict[str, Any]):
     """开关开机自启"""
