@@ -10,7 +10,7 @@ import asyncio
 import copy
 import logging
 import os
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from typing import AsyncGenerator, Awaitable, Callable
 from typing import Any
 
 from zhiyan_web.agent.tool import FunctionTool, ToolSet

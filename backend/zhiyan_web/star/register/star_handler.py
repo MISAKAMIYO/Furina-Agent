@@ -7,7 +7,7 @@ AstrBot 兼容的装饰器系统 - 注册器实现
 from __future__ import annotations
 
 import re
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from typing import AsyncGenerator, Awaitable, Callable
 from typing import Any
 
 from ..filter.command import CommandFilter

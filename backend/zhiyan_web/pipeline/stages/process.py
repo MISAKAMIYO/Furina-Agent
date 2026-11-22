@@ -12,7 +12,7 @@ import logging
 import inspect
 import functools
 import re
-from collections.abc import AsyncGenerator
+from typing import AsyncGenerator
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 

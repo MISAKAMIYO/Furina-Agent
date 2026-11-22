@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator
+from typing import AsyncGenerator
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Generic
 

@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncGenerator
+from typing import AsyncGenerator
 from typing import Any
 
 from .stage import Stage, get_registered_stages

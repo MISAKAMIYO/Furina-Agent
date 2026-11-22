@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncGenerator
+from typing import AsyncGenerator
 
 from ..stage import Stage, register_stage
 from ..scheduler import PipelineEvent
