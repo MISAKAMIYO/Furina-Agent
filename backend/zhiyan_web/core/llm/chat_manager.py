@@ -519,6 +519,41 @@ class ChatManager:
         except Exception:
             return DEFAULT_CONTEXT_WINDOW
     
+    def _get_context_token_budget(self) -> int:
+        """上下文 token 预算（用于前端用量环）。
+
+        优先级：settings.context_tokens → settings.max_context_tokens → 按模型名的常见窗口。
+        与 context_window（保留消息条数）是两个不同的东西。
+        """
+        default = 131072
+        try:
+            from zhiyan_web.config import get_settings
+
+            settings = get_settings()
+            for key in ("context_tokens", "max_context_tokens"):
+                value = settings.get(key)
+                if value:
+                    return max(8192, int(value))
+            model = str(settings.get("model") or "").lower()
+        except Exception:
+            model = ""
+        table = (
+            ("claude", 200000),
+            ("gemini", 1048576),
+            ("gpt-4.1", 1047576),
+            ("gpt-4o", 128000),
+            ("o1", 200000),
+            ("o3", 200000),
+            ("qwen", 131072),
+            ("glm", 131072),
+            ("kimi", 262144),
+            ("deepseek", 131072),
+        )
+        for token, size in table:
+            if token in model:
+                return size
+        return default
+
     async def _manage_context(self, conv: Conversation) -> None:
         """
         管理对话上下文窗口（语义压缩版）
@@ -665,7 +700,10 @@ class ChatManager:
             "message_count": len(conv.messages),
             "estimated_tokens": total_tokens,
             "summary": conv.summary,
+            # context_window 是“保留多少条消息”，前端之前误当成 token 上限，导致 791/20 = 100%
             "context_window": conv.context_window,
+            "window_messages": conv.context_window,
+            "context_tokens": self._get_context_token_budget(),
         }
     
     async def chat(self, message: str, conv_id: str = None, **kwargs) -> LLMResponse:

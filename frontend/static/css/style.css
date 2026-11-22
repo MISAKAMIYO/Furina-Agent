@@ -26851,9 +26851,13 @@ html.dark .dsh-reasoning-row.history {
    BetterGI 页重做（2026-11-22）
    Hero 状态台 + 页签 + 统一面板；只使用语义令牌
    ════════════════════════════════════════════ */
+/* 只在激活时显示：之前无条件 display:block 会让它作为 .win 的 flex 子项占掉半屏，
+   把 .app 挤成 408px（"显示不全"的根因）。 */
 #bettergi-view {
-    display: block;
     padding: 0 24px 40px;
+}
+#bettergi-view.active {
+    display: block;
 }
 
 #bettergi-view > * {

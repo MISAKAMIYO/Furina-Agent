@@ -5463,7 +5463,9 @@ function _renderContextRing(tokens, windowSize) {
 }
 
 function updateContextInfo(context) {
-    _renderContextRing(context && context.estimated_tokens, context && context.context_window);
+    // context_window 是“保留多少条消息”，不是 token 上限；优先用后端给的 context_tokens。
+    var win = (context && (context.context_tokens || context.token_budget)) || CONTEXT_WINDOW_FALLBACK;
+    _renderContextRing(context && context.estimated_tokens, win);
     const el = document.getElementById('chat-context-info');
     if (!el) return;
     if (context && context.message_count > 0) {
